@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  auranav:
+    image: kuangru52/auranav:latest
+    container_name: auranav
+    ports:
+      - "5173:5173"
+    environment:
+      - ADMIN_USER=admin          # 管理员用户名
+      - ADMIN_PASSWORD=admin123    # 管理员密码
+    volumes:
+      - ./data:/app/data          # 数据持久化目录
+    restart: unless-stopped
