@@ -7,6 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 5173;
 const PUBLIC_DIR = path.join(__dirname, 'dist');
 const DATA_DIR = path.join(__dirname, 'data');
+const ICONS_DIR = path.join(DATA_DIR, 'icons');
+const WALLPAPERS_DIR = path.join(DATA_DIR, 'wallpapers');
+
+if (!fs.existsSync(ICONS_DIR)) fs.mkdirSync(ICONS_DIR, { recursive: true });
+if (!fs.existsSync(WALLPAPERS_DIR)) fs.mkdirSync(WALLPAPERS_DIR, { recursive: true });
 
 const getAdminUser = () => {
   if (process.env.ADMIN_USER && process.env.ADMIN_USER.trim()) return process.env.ADMIN_USER.trim();
@@ -236,6 +241,61 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
+  }
+
+  // Serve uploaded icons and wallpapers from data/icons/ or data/wallpapers/
+  if (cleanUrl.startsWith('/data/')) {
+    const subPath = cleanUrl.replace(/^\/data\//, '');
+    const targetFilePath = path.join(DATA_DIR, subPath);
+    if (fs.existsSync(targetFilePath) && fs.statSync(targetFilePath).isFile()) {
+      const ext = path.extname(targetFilePath);
+      const cType = MIME_TYPES[ext] || 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': cType });
+      res.end(fs.readFileSync(targetFilePath));
+      return;
+    }
+  }
+
+  // API endpoint: Upload icon or wallpaper file to disk folders (data/icons or data/wallpapers)
+  if (cleanUrl === '/api/upload' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { type, base64 } = JSON.parse(body || '{}');
+        if (!base64) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: '缺少图片数据' }));
+          return;
+        }
+        const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        let ext = '.png';
+        let buffer;
+        if (matches && matches.length === 3) {
+          if (matches[1] === 'image/jpeg') ext = '.jpg';
+          else if (matches[1] === 'image/webp') ext = '.webp';
+          else if (matches[1] === 'image/gif') ext = '.gif';
+          buffer = Buffer.from(matches[2], 'base64');
+        } else {
+          buffer = Buffer.from(base64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        }
+
+        const subDir = type === 'wallpaper' ? WALLPAPERS_DIR : ICONS_DIR;
+        if (!fs.existsSync(subDir)) fs.mkdirSync(subDir, { recursive: true });
+
+        const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+        const filePath = path.join(subDir, safeName);
+        fs.writeFileSync(filePath, buffer);
+
+        const fileUrl = `/data/${type === 'wallpaper' ? 'wallpapers' : 'icons'}/${safeName}`;
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, url: fileUrl }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
   }
 
   let filePath = path.join(PUBLIC_DIR, cleanUrl === '/' ? 'index.html' : cleanUrl);
