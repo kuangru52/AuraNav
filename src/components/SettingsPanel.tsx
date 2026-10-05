@@ -3,6 +3,8 @@ import type { WallpaperSettings, Credentials, SiteCard, NormalGlassSettings, Pag
 import { exportData, importData } from '../utils/backupUtils'
 import { compressImage } from '../utils/imageUtils'
 import { LogoIcon } from './LogoIcon'
+import { getOnlineWallpapers } from '../utils/wallpaperUtils'
+import { APP_VERSION, isNewerVersion } from '../utils/versionUtils'
 
 type SettingsPanelProps = {
   showSettings: boolean
@@ -113,12 +115,8 @@ export function SettingsPanel({
         .then((res) => res.json())
         .then((data) => {
           if (data && Array.isArray(data.results)) {
-            const hasNewTag = data.results.some((t: any) => t.name !== 'latest' && t.name !== '1.2.2' && t.name !== '1.2.1' && t.name !== '1.2' && t.name !== '1.2.0' && t.name.startsWith('1.3'))
-            if (hasNewTag) {
-              setUpdateStatus('has_update')
-            } else {
-              setUpdateStatus('latest')
-            }
+            const hasNewTag = data.results.some((t: any) => isNewerVersion(t.name, APP_VERSION))
+            setUpdateStatus(hasNewTag ? 'has_update' : 'latest')
           } else {
             setUpdateStatus('latest')
           }
@@ -343,139 +341,14 @@ export function SettingsPanel({
                   <small className="helper-text">每日壁纸暂不可用，请检查网络后重试</small>
                 )}
 
-                {/* 网络壁纸缩略图网格 */}
+                {/* 网络壁纸缩略图网格（从统一集中库 getOnlineWallpapers 读取，与屏幕轮播 100% 同步） */}
                 <div className="wallpaper-grid-scroll">
-                  {/* Bing 每日壁纸 */}
-                  {(() => {
-                    const isSelected = selectedWallpaperUrls.includes(bingWallpaper)
-                    return (
-                      <div
-                        onClick={() => onToggleSelectWallpaper(bingWallpaper)}
-                        style={{
-                          position: 'relative',
-                          aspectRatio: '16 / 9',
-                          borderRadius: '10px',
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          border: isSelected ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.18)',
-                          boxShadow: isSelected ? '0 0 12px rgba(34, 197, 94, 0.4)' : 'none',
-                          background: 'rgba(0,0,0,0.3)',
-                          transition: 'all 0.2s ease',
-                        }}
-                      >
-                        <img src={bingWallpaper} alt="Bing 每日" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        {isSelected && (
-                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.3)', display: 'grid', placeItems: 'center' }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '15px' }}>
-                              ✓
-                            </div>
-                          </div>
-                        )}
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)', fontSize: '0.72rem', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Bing 每日</span>
-                          <span style={{ color: '#38bdf8' }}>Bing</span>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {/* 预设全球稳定高清网络壁纸源（点击刷新按钮批量换新图片） */}
-                  {[
-                    {
-                      id: 'u1',
-                      name: '自然海滩',
-                      source: 'Unsplash 自然',
-                      photos: [
-                        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=1920&q=80',
-                      ],
-                    },
-                    {
-                      id: 'u2',
-                      name: '雪山日落',
-                      source: 'Unsplash 风景',
-                      photos: [
-                        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1454496522488-7a8e488e8606?auto=format&fit=crop&w=1920&q=80',
-                      ],
-                    },
-                    {
-                      id: 'u3',
-                      name: '晨曦森林',
-                      source: 'Unsplash 森林',
-                      photos: [
-                        'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1511497584788-8767611136f6?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80',
-                      ],
-                    },
-                    {
-                      id: 'u4',
-                      name: '赛博霓虹',
-                      source: 'Unsplash 城市',
-                      photos: [
-                        'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80',
-                      ],
-                    },
-                    {
-                      id: 'u5',
-                      name: '浩瀚星空',
-                      source: 'Unsplash 宇宙',
-                      photos: [
-                        'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1502134249126-9f3755a50d78?auto=format&fit=crop&w=1920&q=80',
-                      ],
-                    },
-                    {
-                      id: 'u6',
-                      name: '极简建筑',
-                      source: 'Unsplash 建筑',
-                      photos: [
-                        'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80',
-                        'https://images.unsplash.com/photo-1486325212027-8081e485255e?auto=format&fit=crop&w=1920&q=80',
-                      ],
-                    },
-                    {
-                      id: 'picsum',
-                      name: '随机摄影',
-                      source: 'Picsum 独立源',
-                      photos: [
-                        `https://picsum.photos/1920/1080?random=${bingRefreshKey * 10 + 1}`,
-                        `https://picsum.photos/1920/1080?random=${bingRefreshKey * 10 + 2}`,
-                        `https://picsum.photos/1920/1080?random=${bingRefreshKey * 10 + 3}`,
-                        `https://picsum.photos/1920/1080?random=${bingRefreshKey * 10 + 4}`,
-                      ],
-                    },
-                    {
-                      id: 'flickr',
-                      name: '抽象质感',
-                      source: 'LoremFlickr',
-                      photos: [
-                        `https://loremflickr.com/1920/1080/abstract,minimal?lock=${bingRefreshKey * 10 + 1}`,
-                        `https://loremflickr.com/1920/1080/abstract,minimal?lock=${bingRefreshKey * 10 + 2}`,
-                        `https://loremflickr.com/1920/1080/abstract,minimal?lock=${bingRefreshKey * 10 + 3}`,
-                        `https://loremflickr.com/1920/1080/abstract,minimal?lock=${bingRefreshKey * 10 + 4}`,
-                      ],
-                    },
-                  ].map((preset) => {
-                    const activeUrl = preset.photos[bingRefreshKey % preset.photos.length]
-                    const isSelected = selectedWallpaperUrls.includes(activeUrl)
+                  {getOnlineWallpapers(bingWallpaper, bingRefreshKey).map((preset) => {
+                    const isSelected = selectedWallpaperUrls.includes(preset.url)
                     return (
                       <div
                         key={preset.id}
-                        onClick={() => onToggleSelectWallpaper(activeUrl)}
+                        onClick={() => onToggleSelectWallpaper(preset.url)}
                         style={{
                           position: 'relative',
                           aspectRatio: '16 / 9',
@@ -488,7 +361,7 @@ export function SettingsPanel({
                           transition: 'all 0.2s ease',
                         }}
                       >
-                        <img src={activeUrl} alt={preset.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={preset.url} alt={preset.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         {isSelected && (
                           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.3)', display: 'grid', placeItems: 'center' }}>
                             <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '15px' }}>
@@ -1557,7 +1430,7 @@ export function SettingsPanel({
 
               {/* 版本与 Docker Hub 更新检查提示 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px', borderRadius: '999px', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e2e8f0' }}>版本号：v1.2.2</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e2e8f0' }}>版本号：v{APP_VERSION}</span>
                 {updateStatus === 'checking' && (
                   <span style={{ fontSize: '0.78rem', color: 'rgba(226, 232, 240, 0.6)' }}>检查更新中…</span>
                 )}

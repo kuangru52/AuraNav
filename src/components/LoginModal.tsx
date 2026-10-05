@@ -68,7 +68,8 @@ export function LoginModal({ credentials, onLoginSuccess }: LoginModalProps) {
             <span style={{ fontSize: '0.85rem', color: 'rgba(226, 232, 240, 0.8)' }}>用户名</span>
             <input
               type="text"
-              autoComplete="off"
+              name="username"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="请输入用户名"

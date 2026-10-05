@@ -12,6 +12,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { Header } from './components/Header'
 import { LoginModal } from './components/LoginModal'
 import { SearchBar } from './components/SearchBar'
+import { getOnlineWallpapers } from './utils/wallpaperUtils'
 
 const STORAGE_KEY = 'liquid-nav-cards'
 const WALLPAPER_KEY = 'liquid-nav-wallpaper'
@@ -239,6 +240,17 @@ function App() {
     }
   }, [currentUser.username])
 
+  const [selectedWallpaperUrls, setSelectedWallpaperUrls] = useState<string[]>(() => {
+    const saved = localStorage.getItem('selected-wallpapers')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      } catch {}
+    }
+    return ['https://www.bing.com/favicon.ico']
+  })
+
   useEffect(() => {
     safeSaveLocal(STORAGE_KEY, cards)
     safeSaveLocal(GROUPS_KEY, groups)
@@ -246,6 +258,7 @@ function App() {
     safeSaveLocal(WALLPAPER_KEY, wallpaperSettings)
     safeSaveLocal(LOCAL_WALLPAPERS_KEY, localWallpapers)
     safeSaveLocal(STORED_ICONS_KEY, storedIcons)
+    safeSaveLocal('selected-wallpapers', selectedWallpaperUrls)
 
     if (isInitialLoad.current) {
       isInitialLoad.current = false
@@ -263,9 +276,10 @@ function App() {
       wallpaperSettings,
       localWallpapers,
       storedIcons,
+      selectedWallpaperUrls,
     }
     autoSyncToServer(payload)
-  }, [cards, groups, normalSettings, wallpaperSettings, localWallpapers, storedIcons, autoSyncToServer])
+  }, [cards, groups, normalSettings, wallpaperSettings, localWallpapers, storedIcons, selectedWallpaperUrls, autoSyncToServer])
 
   useEffect(() => {
     const pollSync = async () => {
@@ -283,6 +297,9 @@ function App() {
             if (data.wallpaperSettings) setWallpaperSettings(data.wallpaperSettings)
             if (Array.isArray(data.localWallpapers)) setLocalWallpapers(data.localWallpapers)
             if (Array.isArray(data.storedIcons)) setStoredIcons(data.storedIcons)
+            if (Array.isArray(data.selectedWallpaperUrls) && data.selectedWallpaperUrls.length > 0) {
+              setSelectedWallpaperUrls(data.selectedWallpaperUrls)
+            }
           }
         }
       } catch {}
@@ -303,16 +320,20 @@ function App() {
   const [bingWallpaperError, setBingWallpaperError] = useState(false)
   const [currentWallpaperIndex, setCurrentWallpaperIndex] = useState(0)
   const [selectedCategory, setSelectedCategory] = useState<string>(() => groups[0] ?? '开发')
-  const [selectedWallpaperUrls, setSelectedWallpaperUrls] = useState<string[]>(() => {
-    const saved = localStorage.getItem('selected-wallpapers')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
-      } catch {}
-    }
-    return ['https://www.bing.com/favicon.ico']
-  })
+
+  // 自动清理不存在于当前有效库中的旧壁纸 URL，保证屏幕轮播壁纸与设置打勾选中的缩略图 100% 一致
+  useEffect(() => {
+    const validOnline = getOnlineWallpapers(bingWallpaper, bingRefreshKey).map((item) => item.url)
+    const allValidUrls = [...validOnline, ...localWallpapers]
+
+    setSelectedWallpaperUrls((prev) => {
+      const validPrev = prev.filter((url) => allValidUrls.includes(url))
+      if (validPrev.length === 0) {
+        return [bingWallpaper]
+      }
+      return validPrev
+    })
+  }, [bingWallpaper, bingRefreshKey, localWallpapers])
 
   useEffect(() => {
     localStorage.setItem('selected-wallpapers', JSON.stringify(selectedWallpaperUrls))
@@ -994,45 +1015,69 @@ function App() {
                 </span>
               ))}
               {isEditing && (
-                <>
-                  <button type="button" className="category-add-button" onClick={() => setShowGroupForm(true)}>
-                    + 新建分组
-                  </button>
-                  <button
-                    type="button"
-                    className="category-add-button"
-                    onClick={handleFetchAllSiteFavicons}
-                    style={{ background: 'rgba(34, 197, 94, 0.18)', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#4ade80' }}
-                    title="自动批量拉取所有未设置图标网站的官方图标，避开您手动上传的图标"
-                  >
-                    🌐 一键获取所有网站图标
-                  </button>
-                  <button
-                    type="button"
-                    className="category-add-button"
-                    onClick={handleApplyColorPalette}
-                    style={{ background: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(168, 85, 247, 0.5)', color: '#c084fc', fontWeight: 600 }}
-                    title="点击切换卡片配色方案（马卡龙、莫兰蒂、赛博、北欧等），点一次换一种"
-                  >
-                    🎨 一键配色 ({colorPalettes[currentPaletteIndex].name})
-                  </button>
-                  <button
-                    type="button"
-                    className="category-add-button"
-                    onClick={handleClearAllCardColors}
-                    style={{ background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.3)', color: '#e2e8f0', fontWeight: 600 }}
-                    title="一键清除所有卡片自定义背景颜色，恢复为统一原版毛玻璃透明风格"
-                  >
-                    💧 一键透明
-                  </button>
-                </>
+                <button type="button" className="category-add-button" onClick={() => setShowGroupForm(true)}>
+                  + 新建分组
+                </button>
               )}
 
-              {/* 分类栏居中搜索框 (不影响分类位置，手机端自动隐藏) */}
+              {/* 分类栏居中搜索框 (手机端自动隐藏) */}
               {pageLayoutSettings.showSearchBar && (
                 <SearchBar defaultEngineId={pageLayoutSettings.defaultSearchEngine} />
               )}
             </div>
+
+            {/* 编辑模式下三大快捷功能悬浮独立卡片 */}
+            {isEditing && (
+              <div
+                className="floating-edit-card"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  padding: '8px 16px',
+                  margin: '12px auto 0',
+                  width: 'fit-content',
+                  maxWidth: 'calc(100vw - 32px)',
+                  borderRadius: '16px',
+                  background: 'rgba(13, 20, 34, 0.82)',
+                  backdropFilter: 'blur(20px) saturate(160%)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+                  border: '1px solid rgba(168, 85, 247, 0.45)',
+                  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.45)',
+                  zIndex: 25,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <button
+                  type="button"
+                  className="category-add-button"
+                  onClick={handleFetchAllSiteFavicons}
+                  style={{ background: 'rgba(34, 197, 94, 0.18)', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#4ade80' }}
+                  title="自动批量拉取所有未设置图标网站的官方图标，避开您手动上传的图标"
+                >
+                  🌐 一键获取所有网站图标
+                </button>
+                <button
+                  type="button"
+                  className="category-add-button"
+                  onClick={handleApplyColorPalette}
+                  style={{ background: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(168, 85, 247, 0.5)', color: '#c084fc', fontWeight: 600 }}
+                  title="点击切换卡片配色方案（马卡龙、莫兰蒂、赛博、北欧等），点一次换一种"
+                >
+                  🎨 一键配色 ({colorPalettes[currentPaletteIndex].name})
+                </button>
+                <button
+                  type="button"
+                  className="category-add-button"
+                  onClick={handleClearAllCardColors}
+                  style={{ background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.3)', color: '#e2e8f0', fontWeight: 600 }}
+                  title="一键清除所有卡片自定义背景颜色，恢复为统一原版毛玻璃透明风格"
+                >
+                  💧 一键透明
+                </button>
+              </div>
+            )}
 
             <div
               className="card-grid"

@@ -67,6 +67,8 @@ export function SearchBar({ defaultEngineId = 'baidu' }: SearchBarProps) {
 
       <input
         type="text"
+        name="search_query"
+        autoComplete="off"
         className="search-input"
         placeholder={`在 ${currentEngine.name} 中搜索...`}
         value={query}
