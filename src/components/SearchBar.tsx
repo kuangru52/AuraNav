@@ -23,6 +23,7 @@ export function SearchBar({ defaultEngineId = 'baidu' }: SearchBarProps) {
   const [selectedEngineId, setSelectedEngineId] = useState(defaultEngineId)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
+  const [isReadOnly, setIsReadOnly] = useState(true)
 
   const currentEngine = SEARCH_ENGINES.find((e) => e.id === selectedEngineId) ?? SEARCH_ENGINES[0]
 
@@ -68,7 +69,9 @@ export function SearchBar({ defaultEngineId = 'baidu' }: SearchBarProps) {
       <input
         type="text"
         name="search_query"
-        autoComplete="off"
+        autoComplete="new-password"
+        readOnly={isReadOnly}
+        onFocus={() => setIsReadOnly(false)}
         className="search-input"
         placeholder={`在 ${currentEngine.name} 中搜索...`}
         value={query}
