@@ -36,6 +36,7 @@ export function SiteModal({
 }: SiteModalProps) {
   const [showGallery, setShowGallery] = useState(false)
   const [isFetchingIcon, setIsFetchingIcon] = useState(false)
+  const [isReadOnly, setIsReadOnly] = useState(true)
 
   if (!isOpen) return null
 
@@ -76,6 +77,12 @@ export function SiteModal({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(event) => event.stopPropagation()}>
+        {/* 陷阱表单：拦截并捕获浏览器的暴力密码自动填充 */}
+        <div style={{ display: 'none', position: 'absolute', opacity: 0, height: 0, width: 0, overflow: 'hidden' }} aria-hidden="true">
+          <input type="text" name="fake_username_trap" tabIndex={-1} autoComplete="off" />
+          <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="new-password" />
+        </div>
+
         <div className="panel-header">
           <h3>{editingCardId ? '编辑站点' : '添加站点'}</h3>
         </div>
@@ -176,6 +183,11 @@ export function SiteModal({
           <label>
             <span>标题</span>
             <input
+              type="text"
+              name="site_title_field"
+              autoComplete="off"
+              readOnly={isReadOnly}
+              onFocus={() => setIsReadOnly(false)}
               value={form.title}
               onChange={(event) => onFormChange((prev) => ({ ...prev, title: event.target.value }))}
               placeholder="输入站点名称"
@@ -184,6 +196,11 @@ export function SiteModal({
           <label>
             <span>网址</span>
             <input
+              type="text"
+              name="site_url_field"
+              autoComplete="off"
+              readOnly={isReadOnly}
+              onFocus={() => setIsReadOnly(false)}
               value={form.url}
               onChange={(event) => onFormChange((prev) => ({ ...prev, url: event.target.value }))}
               placeholder="example.com"
@@ -195,6 +212,11 @@ export function SiteModal({
             <span style={{ display: 'block', marginBottom: '6px' }}>图标 (支持文本、自定义URL或按钮选择)</span>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
+                type="text"
+                name="site_icon_field"
+                autoComplete="off"
+                readOnly={isReadOnly}
+                onFocus={() => setIsReadOnly(false)}
                 value={/^data:image\//i.test(form.icon) ? '[已选择图片图标]' : form.icon}
                 onChange={(event) => onFormChange((prev) => ({ ...prev, icon: event.target.value }))}
                 placeholder="输入文字/URL"
@@ -382,6 +404,11 @@ export function SiteModal({
           <label className="full-width">
             <span>描述</span>
             <input
+              type="text"
+              name="site_desc_field"
+              autoComplete="off"
+              readOnly={isReadOnly}
+              onFocus={() => setIsReadOnly(false)}
               value={form.description}
               onChange={(event) => onFormChange((prev) => ({ ...prev, description: event.target.value }))}
               placeholder="实用快捷入口"
