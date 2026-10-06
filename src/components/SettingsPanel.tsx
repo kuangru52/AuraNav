@@ -357,7 +357,7 @@ export function SettingsPanel({
                   <small className="helper-text">每日壁纸暂不可用，请检查网络后重试</small>
                 )}
 
-                {/* 网络壁纸缩略图网格（从统一集中库 getOnlineWallpapers 读取，与屏幕轮播 100% 同步） */}
+                {/* 网络壁纸缩略图网格（标题与来源放置于壁纸图片框外部下方） */}
                 <div className="wallpaper-grid-scroll">
                   {getOnlineWallpapers(bingWallpaper, bingRefreshKey).map((preset) => {
                     const isSelected = selectedWallpaperUrls.includes(preset.url)
@@ -366,28 +366,44 @@ export function SettingsPanel({
                         key={preset.id}
                         onClick={() => onToggleSelectWallpaper(preset.url)}
                         style={{
-                          position: 'relative',
-                          aspectRatio: '16 / 9',
-                          borderRadius: '10px',
-                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
                           cursor: 'pointer',
-                          border: isSelected ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.18)',
-                          boxShadow: isSelected ? '0 0 12px rgba(34, 197, 94, 0.4)' : 'none',
-                          background: 'rgba(0,0,0,0.3)',
-                          transition: 'all 0.2s ease',
                         }}
                       >
-                        <img src={preset.url} alt={preset.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        {isSelected && (
-                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.3)', display: 'grid', placeItems: 'center' }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '15px' }}>
-                              ✓
+                        {/* 16:9 壁纸图片框 */}
+                        <div
+                          style={{
+                            position: 'relative',
+                            aspectRatio: '16 / 9',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            border: isSelected ? '2.5px solid #22c55e' : '1px solid rgba(255,255,255,0.18)',
+                            boxShadow: isSelected ? '0 0 14px rgba(34, 197, 94, 0.45)' : '0 4px 12px rgba(0,0,0,0.25)',
+                            background: 'rgba(0,0,0,0.3)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <img
+                            src={preset.url}
+                            alt={preset.name}
+                            referrerPolicy="no-referrer"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                          {isSelected && (
+                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.3)', display: 'grid', placeItems: 'center' }}>
+                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                                ✓
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)', fontSize: '0.72rem', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>{preset.name}</span>
-                          <span style={{ color: '#a855f7' }}>{preset.source}</span>
+                          )}
+                        </div>
+
+                        {/* 壁纸框下方外置标题与来源 */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px', fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 500 }}>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preset.name}</span>
+                          <span style={{ color: '#c084fc', fontSize: '0.72rem', flexShrink: 0 }}>{preset.source}</span>
                         </div>
                       </div>
                     )
@@ -502,7 +518,7 @@ export function SettingsPanel({
             )}
           </div>
 
-          {/* 最下部分：左边轮播时间 + 右边变窄的壁纸模糊度拖动条 */}
+          {/* 最下部分：左边轮播时间 (仅轮播模式显示) + 右边壁纸模糊度拖动条 */}
           <div
             style={{
               display: 'flex',
@@ -513,34 +529,36 @@ export function SettingsPanel({
               paddingTop: '14px',
             }}
           >
-            {/* 左边：轮播时间 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <span style={{ fontSize: '0.85rem', color: 'rgba(226,232,240,0.85)', whiteSpace: 'nowrap' }}>轮播时间</span>
-              <input
-                type="number"
-                min="3"
-                step="1"
-                value={intervalDraft}
-                onChange={(event) => onIntervalDraftChange(event.target.value)}
-                onBlur={commitWallpaperInterval}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') event.currentTarget.blur()
-                }}
-                style={{
-                  width: '60px',
-                  height: '34px',
-                  padding: '0 6px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(15, 23, 42, 0.5)',
-                  color: '#fff',
-                  textAlign: 'center',
-                  outline: 'none',
-                  fontSize: '0.85rem',
-                }}
-              />
-              <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.6)' }}>秒</span>
-            </div>
+            {/* 左边：仅在轮播模式下才显示轮播时间 */}
+            {wallpaperSelectionMode === 'carousel' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span style={{ fontSize: '0.85rem', color: 'rgba(226,232,240,0.85)', whiteSpace: 'nowrap' }}>轮播时间</span>
+                <input
+                  type="number"
+                  min="3"
+                  step="1"
+                  value={intervalDraft}
+                  onChange={(event) => onIntervalDraftChange(event.target.value)}
+                  onBlur={commitWallpaperInterval}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') event.currentTarget.blur()
+                  }}
+                  style={{
+                    width: '60px',
+                    height: '34px',
+                    padding: '0 6px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    color: '#fff',
+                    textAlign: 'center',
+                    outline: 'none',
+                    fontSize: '0.85rem',
+                  }}
+                />
+                <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.6)' }}>秒</span>
+              </div>
+            )}
 
             {/* 右边：变窄的壁纸模糊度拖动条 */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '140px' }}>
