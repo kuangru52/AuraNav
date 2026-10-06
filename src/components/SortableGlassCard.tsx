@@ -54,6 +54,10 @@ export function SortableGlassCard({
         backgroundColor: getCardBg(),
         backdropFilter: `blur(${normalSettings.blur}px)`,
         WebkitBackdropFilter: `blur(${normalSettings.blur}px)`,
+        overflow: 'hidden',
+        isolation: 'isolate',
+        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden',
         border: card.accent
           ? `1px solid ${card.accent.startsWith('#') ? `${card.accent}80` : card.accent}`
           : `1px solid rgba(255, 255, 255, ${Math.max(0.12, normalSettings.edgeHighlight * 0.5)})`,
