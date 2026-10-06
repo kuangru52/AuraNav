@@ -55,6 +55,7 @@ export function SortableGlassCard({
         backdropFilter: `blur(${normalSettings.blur}px)`,
         WebkitBackdropFilter: `blur(${normalSettings.blur}px)`,
         overflow: 'hidden',
+        contain: 'paint',
         isolation: 'isolate',
         WebkitBackfaceVisibility: 'hidden',
         backfaceVisibility: 'hidden',
