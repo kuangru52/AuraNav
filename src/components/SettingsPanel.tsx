@@ -1576,25 +1576,25 @@ export function SettingsPanel({
                 </div>
               </div>
 
-              {/* 版本与 Docker Hub 更新检查提示 */}
+              {/* 版本与 GitHub / Docker Hub 更新检查提示 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px', borderRadius: '999px', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e2e8f0' }}>版本号：v{APP_VERSION}</span>
                 {updateStatus === 'checking' && (
-                  <span style={{ fontSize: '0.78rem', color: 'rgba(226, 232, 240, 0.6)' }}>连接 Docker Hub 检查更新中…</span>
+                  <span style={{ fontSize: '0.78rem', color: 'rgba(226, 232, 240, 0.6)' }}>连接 GitHub / CDN 检查更新中…</span>
                 )}
                 {updateStatus === 'latest' && (
                   <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.4)' }}>
-                    ✓ 已是 Docker Hub 最新版本
+                    ✓ 已是最新版本
                   </span>
                 )}
                 {updateStatus === 'has_update' && (
                   <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
-                    💡 发现新版本 {remoteLatestVersion} 已推送到 Docker Hub！
+                    💡 发现新版本 v{remoteLatestVersion} 已发布！
                   </span>
                 )}
                 {updateStatus === 'error' && (
                   <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(239, 68, 68, 0.18)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)' }}>
-                    ⚠️ 网络受限，无法连接 Docker Hub 检查
+                    ⚠️ 网络限制，无法连接服务器检查
                   </span>
                 )}
               </div>

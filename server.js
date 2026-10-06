@@ -247,53 +247,107 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
+function fetchHttpsJson(urlStr, headers = {}) {
+  return new Promise((resolve, reject) => {
+    try {
+      const parsedUrl = new URL(urlStr);
+      const req = https.get(
+        {
+          hostname: parsedUrl.hostname,
+          path: parsedUrl.pathname + parsedUrl.search,
+          headers: {
+            'User-Agent': 'AuraNav-Server',
+            Accept: 'application/json, text/plain, */*',
+            ...headers,
+          },
+          timeout: 5000,
+        },
+        (res) => {
+          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            fetchHttpsJson(res.headers.location, headers).then(resolve).catch(reject);
+            return;
+          }
+          let data = '';
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data || '{}'));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        }
+      );
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('请求超时'));
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const cleanUrl = parsedUrl.pathname;
 
-  // Docker Hub 远程 Tag 版本更新检测接口
+  // 自动检测最新版本号 (多渠道容灾：GitHub Release -> jsDelivr 镜像 -> GitHub Raw -> Docker Hub)
   if (cleanUrl === '/api/check-update') {
-    const options = {
-      hostname: 'hub.docker.com',
-      path: '/v2/repositories/kuangru52/auranav/tags?page_size=25',
-      headers: { 'User-Agent': 'AuraNav-Server' },
-      timeout: 8000,
-    };
+    async function checkLatestVersion() {
+      // 1. 尝试 GitHub API 最新 Release
+      try {
+        const ghRelease = await fetchHttpsJson('https://api.github.com/repos/kuangru52/AuraNav/releases/latest');
+        if (ghRelease && ghRelease.tag_name) {
+          return { success: true, latestVersion: ghRelease.tag_name.replace(/^v/i, ''), source: 'GitHub' };
+        }
+      } catch {}
 
-    const reqTag = https.get(options, (tagRes) => {
-      let data = '';
-      tagRes.on('data', chunk => { data += chunk; });
-      tagRes.on('end', () => {
-        try {
-          const json = JSON.parse(data || '{}');
-          if (json && Array.isArray(json.results)) {
-            let highestTag = '';
-            for (const t of json.results) {
-              if (t.name && t.name !== 'latest' && /^\d+\.\d+/.test(t.name)) {
-                if (!highestTag || compareSemver(t.name, highestTag) > 0) {
-                  highestTag = t.name;
-                }
+      // 2. 尝试 jsDelivr CDN 极速镜像（国内 100% 直连无阻）
+      try {
+        const cdnData = await fetchHttpsJson('https://cdn.jsdelivr.net/gh/kuangru52/AuraNav@main/package.json');
+        if (cdnData && cdnData.version) {
+          return { success: true, latestVersion: cdnData.version, source: 'GitHub (jsDelivr镜像)' };
+        }
+      } catch {}
+
+      // 3. 尝试 GitHub Raw package.json
+      try {
+        const rawData = await fetchHttpsJson('https://raw.githubusercontent.com/kuangru52/AuraNav/main/package.json');
+        if (rawData && rawData.version) {
+          return { success: true, latestVersion: rawData.version, source: 'GitHub Raw' };
+        }
+      } catch {}
+
+      // 4. 尝试 Docker Hub API
+      try {
+        const dockerData = await fetchHttpsJson('https://hub.docker.com/v2/repositories/kuangru52/auranav/tags?page_size=25');
+        if (dockerData && Array.isArray(dockerData.results)) {
+          let highestTag = '';
+          for (const t of dockerData.results) {
+            if (t.name && t.name !== 'latest' && /^\d+\.\d+/.test(t.name)) {
+              if (!highestTag || compareSemver(t.name, highestTag) > 0) {
+                highestTag = t.name;
               }
             }
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: true, latestVersion: highestTag || null }));
-            return;
           }
-        } catch {}
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: false, error: '无法解析 Docker Hub 数据' }));
-      });
-    });
+          if (highestTag) return { success: true, latestVersion: highestTag, source: 'Docker Hub' };
+        }
+      } catch {}
 
-    reqTag.on('error', (e) => {
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: false, error: e.message }));
-    });
-    reqTag.on('timeout', () => {
-      reqTag.destroy();
-      res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: false, error: '连接 Docker Hub 超时' }));
-    });
+      return { success: false, error: '无法连接 GitHub 或 Docker Hub 检查更新' };
+    }
+
+    checkLatestVersion()
+      .then((result) => {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(result));
+      })
+      .catch((e) => {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      });
     return;
   }
 
