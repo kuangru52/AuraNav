@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { SortableContext, arrayMove, rectSortingStrategy, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 import type { SiteCard, NormalGlassSettings, WallpaperSettings, Credentials, PageLayoutSettings } from './types'
 import { compressImage } from './utils/imageUtils'
 import { SortableGlassCard } from './components/SortableGlassCard'
+import { SortableGroupPill } from './components/SortableGroupPill'
 import { SiteModal } from './components/SiteModal'
 import { GroupModal } from './components/GroupModal'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -800,7 +801,20 @@ function App() {
     const fallbackGroup = remainingGroups[0]
     setGroups(remainingGroups)
     setCards((prev) => prev.map((card) => card.category === name ? { ...card, category: fallbackGroup } : card))
-    if (selectedCategory === name) setSelectedCategory('全部')
+    if (selectedCategory === name) setSelectedCategory(fallbackGroup ?? '开发')
+  }
+
+  // 拖拽重新调整分组排序
+  const reorderGroups = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setGroups((prev) => {
+      const oldIndex = prev.indexOf(String(active.id))
+      const newIndex = prev.indexOf(String(over.id))
+      if (oldIndex < 0 || newIndex < 0) return prev
+      return arrayMove(prev, oldIndex, newIndex)
+    })
   }
 
   const handleDeleteStoredIcon = (index: number) => {
@@ -968,50 +982,57 @@ function App() {
 
         <div className="content-area">
           <main className="main-panel">
-            <div
-              className="category-bar"
-              style={{
-                position: 'relative',
-                paddingLeft: `${pageLayoutSettings.categoryPaddingX}px`,
-                paddingRight: `${pageLayoutSettings.categoryPaddingX}px`,
-                marginTop: `${pageLayoutSettings.categoryMarginTop}px`,
-                justifyContent: pageLayoutSettings.showSearchBar && pageLayoutSettings.categoryAlign === 'center'
-                  ? 'flex-start'
-                  : pageLayoutSettings.categoryAlign,
-              }}
-            >
-              {['全部', ...groups].map((category) => (
-                <span className="category-item" key={category}>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorderGroups}>
+              <div
+                className="category-bar"
+                style={{
+                  position: 'relative',
+                  paddingLeft: `${pageLayoutSettings.categoryPaddingX}px`,
+                  paddingRight: `${pageLayoutSettings.categoryPaddingX}px`,
+                  marginTop: `${pageLayoutSettings.categoryMarginTop}px`,
+                  justifyContent: pageLayoutSettings.showSearchBar && pageLayoutSettings.categoryAlign === 'center'
+                    ? 'flex-start'
+                    : pageLayoutSettings.categoryAlign,
+                }}
+              >
+                {/* 固定“全部”分类按钮 */}
+                <span className="category-item">
                   <button
                     type="button"
-                    className={selectedCategory === category ? 'category-pill active' : 'category-pill'}
-                    onClick={() => setSelectedCategory(category)}
+                    className={selectedCategory === '全部' ? 'category-pill active' : 'category-pill'}
+                    onClick={() => setSelectedCategory('全部')}
                   >
-                    {category}
+                    全部
                   </button>
-                  {isEditing && category !== '全部' && groups.length > 1 && (
-                    <button
-                      type="button"
-                      className="group-delete-button"
-                      onClick={() => removeGroup(category)}
-                      aria-label={`删除分组 ${category}`}
-                    >
-                      ×
-                    </button>
-                  )}
                 </span>
-              ))}
-              {isEditing && (
-                <button type="button" className="category-add-button" onClick={() => setShowGroupForm(true)}>
-                  + 新建分组
-                </button>
-              )}
 
-              {/* 分类栏居中搜索框 (手机端自动隐藏) */}
-              {pageLayoutSettings.showSearchBar && (
-                <SearchBar defaultEngineId={pageLayoutSettings.defaultSearchEngine} />
-              )}
-            </div>
+                {/* 可拖拽排序的自定义分组列表 */}
+                <SortableContext items={groups} strategy={horizontalListSortingStrategy}>
+                  {groups.map((category) => (
+                    <SortableGroupPill
+                      key={category}
+                      category={category}
+                      selectedCategory={selectedCategory}
+                      isEditing={isEditing}
+                      groupsCount={groups.length}
+                      onSelect={setSelectedCategory}
+                      onRemove={removeGroup}
+                    />
+                  ))}
+                </SortableContext>
+
+                {isEditing && (
+                  <button type="button" className="category-add-button" onClick={() => setShowGroupForm(true)}>
+                    + 新建分组
+                  </button>
+                )}
+
+                {/* 分类栏居中搜索框 (手机端自动隐藏) */}
+                {pageLayoutSettings.showSearchBar && (
+                  <SearchBar defaultEngineId={pageLayoutSettings.defaultSearchEngine} />
+                )}
+              </div>
+            </DndContext>
 
             {/* 编辑模式下三大快捷功能悬浮独立卡片 */}
             {isEditing && (
