@@ -40,14 +40,17 @@ export function SiteModal({
 
   if (!isOpen) return null
 
-  // Check if current icon is an image URL/data
+  // Check if current icon is an image URL/data/server path
   const isImageIcon =
-    /^data:image\//i.test(form.icon) || /^blob:/i.test(form.icon) || /^https?:\/\//i.test(form.icon)
+    /^data:image\//i.test(form.icon) ||
+    /^blob:/i.test(form.icon) ||
+    /^https?:\/\//i.test(form.icon) ||
+    form.icon.startsWith('/data/')
 
-  // 仅收集用户本地上传保存的图片图标（过滤掉从网站直接拉取的网络 URL 图标）
+  // 收集所有图片图标（包含 data:image/、blob: 与服务器 /data/ 离线图片路径）
   const cardImageIcons = cards
     .map((c) => c.icon)
-    .filter((icon) => /^data:image\//i.test(icon) || /^blob:/i.test(icon))
+    .filter((icon) => /^data:image\//i.test(icon) || /^blob:/i.test(icon) || icon.startsWith('/data/'))
 
   const allAvailableIcons = Array.from(new Set([...storedIcons, ...cardImageIcons]))
 
@@ -83,42 +86,38 @@ export function SiteModal({
           <input type="password" name="fake_password_trap" tabIndex={-1} autoComplete="new-password" />
         </div>
 
-        <div className="panel-header">
-          <h3>{editingCardId ? '编辑站点' : '添加站点'}</h3>
-        </div>
-
         {/* 顶部实时卡片效果预览 */}
         <div
           style={{
             marginBottom: '16px',
-            padding: '14px',
+            padding: '12px',
             borderRadius: '16px',
             background: 'rgba(15, 23, 42, 0.45)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '8px',
+            justifyContent: 'center',
           }}
         >
-          <span style={{ fontSize: '0.75rem', color: 'rgba(226, 232, 240, 0.5)', alignSelf: 'flex-start' }}>
-            实时卡片效果预览
-          </span>
           <div
             style={{
               width: '100%',
               maxWidth: '280px',
               height: '68px',
               borderRadius: '16px',
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backgroundColor: form.accent
+                ? (form.accent.startsWith('#') ? `${form.accent}45` : form.accent)
+                : 'rgba(255, 255, 255, 0.15)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
+              border: form.accent
+                ? `1px solid ${form.accent.startsWith('#') ? `${form.accent}80` : form.accent}`
+                : '1px solid rgba(255, 255, 255, 0.25)',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.18)',
               display: 'flex',
               alignItems: 'center',
               padding: '8px 12px',
               gap: '12px',
+              transition: 'background-color 0.2s ease, border-color 0.2s ease',
             }}
           >
             {/* 预览图标区 */}
@@ -148,7 +147,7 @@ export function SiteModal({
                 form.icon || (form.title.trim() ? form.title.trim().slice(0, 2) : '?')
               )}
             </div>
-            {/* 预览文字区 */}
+            {/* 预览文字区（上边是标题，下边是描述，绝不显示网址） */}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1 }}>
               <h4
                 style={{
@@ -173,27 +172,54 @@ export function SiteModal({
                   textOverflow: 'ellipsis',
                 }}
               >
-                {form.description.trim() || form.url.trim() || '实用快捷入口'}
+                {form.description.trim() || '实用快捷入口'}
               </p>
             </div>
           </div>
         </div>
 
         <div className="form-grid">
-          <label>
-            <span>标题</span>
-            <input
-              type="text"
-              name="site_title_field"
-              autoComplete="off"
-              readOnly={isReadOnly}
-              onFocus={() => setIsReadOnly(false)}
-              value={form.title}
-              onChange={(event) => onFormChange((prev) => ({ ...prev, title: event.target.value }))}
-              placeholder="输入站点名称"
-            />
-          </label>
-          <label>
+          {/* 第一行：标题 + 分类 + 卡片背景色 (三者同一行) */}
+          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1fr', gap: '12px', alignItems: 'end' }}>
+            <label style={{ margin: 0 }}>
+              <span>标题</span>
+              <input
+                type="text"
+                name="site_title_field"
+                autoComplete="off"
+                readOnly={isReadOnly}
+                onFocus={() => setIsReadOnly(false)}
+                value={form.title}
+                onChange={(event) => onFormChange((prev) => ({ ...prev, title: event.target.value }))}
+                placeholder="输入站点名称"
+              />
+            </label>
+            <label style={{ margin: 0 }}>
+              <span>分类</span>
+              <select
+                value={form.category}
+                onChange={(event) => onFormChange((prev) => ({ ...prev, category: event.target.value }))}
+              >
+                {groups.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ margin: 0 }}>
+              <span>卡片背景色</span>
+              <input
+                type="color"
+                value={form.accent}
+                onChange={(event) => onFormChange((prev) => ({ ...prev, accent: event.target.value }))}
+                style={{ height: '42px', padding: '2px', cursor: 'pointer', width: '100%' }}
+              />
+            </label>
+          </div>
+
+          {/* 第二行：网址 (独占下一行) */}
+          <label className="full-width">
             <span>网址</span>
             <input
               type="text"
@@ -206,6 +232,8 @@ export function SiteModal({
               placeholder="example.com"
             />
           </label>
+
+          {/* 第三行：图标栏 */}
 
           {/* 图标栏 */}
           <label className="full-width">
@@ -380,27 +408,6 @@ export function SiteModal({
             )}
           </label>
 
-          <label>
-            <span>分类</span>
-            <select
-              value={form.category}
-              onChange={(event) => onFormChange((prev) => ({ ...prev, category: event.target.value }))}
-            >
-              {groups.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>卡片背景色</span>
-            <input
-              type="color"
-              value={form.accent}
-              onChange={(event) => onFormChange((prev) => ({ ...prev, accent: event.target.value }))}
-            />
-          </label>
           <label className="full-width">
             <span>描述</span>
             <input
