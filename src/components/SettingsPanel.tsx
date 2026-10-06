@@ -32,11 +32,7 @@ type SettingsPanelProps = {
   updateNormalGlass: <K extends keyof NormalGlassSettings>(key: K, value: NormalGlassSettings[K]) => void
   currentWallpaper: string
   credentials: Credentials
-  onCredentialsChange: React.Dispatch<React.SetStateAction<Credentials>>
   currentUser?: { username: string; isAdmin: boolean }
-  ordinaryUsers?: { username: string }[]
-  onCreateOrdinaryUser?: (username: string, password: string) => Promise<void>
-  onDeleteOrdinaryUser?: (username: string) => Promise<void>
   onLogout: () => void
   cards: SiteCard[]
   groups: string[]
@@ -75,11 +71,7 @@ export function SettingsPanel({
   updateNormalGlass,
   currentWallpaper,
   credentials,
-  onCredentialsChange,
   currentUser = { username: credentials.username || 'admin', isAdmin: true },
-  ordinaryUsers = [],
-  onCreateOrdinaryUser,
-  onDeleteOrdinaryUser,
   onLogout,
   cards,
   groups,
@@ -95,10 +87,6 @@ export function SettingsPanel({
   const isDraggingRef = React.useRef(false);
   const dragStartRef = React.useRef({ x: 0, y: 0 });
 
-  const [newPassword, setNewPassword] = React.useState('')
-  const [showPassword, setShowPassword] = React.useState(false)
-  const [addOrdinaryUser, setAddOrdinaryUser] = React.useState('')
-  const [addOrdinaryPass, setAddOrdinaryPass] = React.useState('')
   const [storageTab, setStorageTab] = React.useState<'icon' | 'wallpaper'>('icon')
   const [wallpaperTab, setWallpaperTab] = React.useState<'online' | 'local'>('online')
   const [pageTab, setPageTab] = React.useState<'topbar' | 'category' | 'cards' | 'widgets'>('topbar')
@@ -1539,193 +1527,26 @@ export function SettingsPanel({
       <section className="settings-section" hidden={settingsCategory !== 'account'}>
         <div className="settings-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
           <div className="setting-group" style={{ display: 'grid', gap: '16px', padding: '16px 0', border: 0 }}>
-            {currentUser.isAdmin ? (
-              /* 管理员账号视角 */
-              <>
-                <div style={{ padding: '12px 14px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#38bdf8' }}>
-                      当前管理员账号：{currentUser.username}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>
-                      管理员
-                    </span>
-                  </div>
-                  <small style={{ fontSize: '0.78rem', color: 'rgba(226, 232, 240, 0.65)' }}>
-                    管理员账号的用户名和密码由部署环境变量 (docker-compose.yml) 设定，无法在 UI 修改。
-                  </small>
-                </div>
-
-                {/* 普通账号管理功能 */}
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
-                  <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc', display: 'block', marginBottom: '10px' }}>
-                    普通账号管理
-                  </span>
-
-                  {/* 新建普通账号表单 */}
-                  <div className="admin-create-user-form">
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>普通用户名</span>
-                        <input
-                          type="text"
-                          placeholder="输入新用户名"
-                          value={addOrdinaryUser}
-                          onChange={(e) => setAddOrdinaryUser(e.target.value)}
-                          style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.6)', color: '#fff', outline: 'none', fontSize: '0.85rem' }}
-                        />
-                      </label>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>新用户密码</span>
-                        <input
-                          type="password"
-                          placeholder="输入密码"
-                          value={addOrdinaryPass}
-                          onChange={(e) => setAddOrdinaryPass(e.target.value)}
-                          style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.6)', color: '#fff', outline: 'none', fontSize: '0.85rem' }}
-                        />
-                      </label>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="action-button primary admin-create-btn"
-                      onClick={async () => {
-                        if (!addOrdinaryUser.trim() || !addOrdinaryPass.trim()) {
-                          alert('请输入用户名和密码！')
-                          return
-                        }
-                        if (onCreateOrdinaryUser) {
-                          await onCreateOrdinaryUser(addOrdinaryUser.trim(), addOrdinaryPass.trim())
-                          setAddOrdinaryUser('')
-                          setAddOrdinaryPass('')
-                        }
-                      }}
-                    >
-                      + 创建账号
-                    </button>
-                  </div>
-
-                  {/* 已创建的普通账号列表 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.6)' }}>已添加普通账号列表 ({ordinaryUsers.length})</span>
-                    {ordinaryUsers.length === 0 ? (
-                      <p style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.4)', margin: 0, padding: '8px 0' }}>
-                        暂无普通账号，可使用上表单新建账号，不同账号数据完全隔离。
-                      </p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto' }}>
-                        {ordinaryUsers.map((u) => (
-                          <div
-                            key={u.username}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', background: 'rgba(15,23,42,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 500 }}>{u.username}</span>
-                              <span style={{ fontSize: '0.7rem', color: 'rgba(226,232,240,0.5)', padding: '1px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>普通用户</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (confirm(`确认删除普通账号 "${u.username}" 及其所有数据？`)) {
-                                  if (onDeleteOrdinaryUser) await onDeleteOrdinaryUser(u.username)
-                                }
-                              }}
-                              style={{ background: 'transparent', border: 0, color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer' }}
-                            >
-                              删除账号
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              /* 普通用户视角 */
-              <div className="account-fields-grid">
-                <label style={{ display: 'grid', gap: '6px' }}>
-                  <span className="setting-label">用户名</span>
-                  <input
-                    type="text"
-                    value={currentUser.username}
-                    disabled
-                    style={{ height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.3)', color: 'rgba(255,255,255,0.6)', outline: 'none' }}
-                  />
-                </label>
-                <label style={{ display: 'grid', gap: '6px' }}>
-                  <span className="setting-label">修改新密码</span>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="输入新密码"
-                      style={{ width: '100%', height: '42px', padding: '0 40px 0 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.6)', color: '#fff', outline: 'none' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      title={showPassword ? '隐藏密码' : '显示密码'}
-                      style={{
-                        position: 'absolute',
-                        right: '8px',
-                        background: 'rgba(255, 255, 255, 0.12)',
-                        border: '1px solid rgba(255, 255, 255, 0.25)',
-                        borderRadius: '6px',
-                        color: '#38bdf8',
-                        cursor: 'pointer',
-                        display: 'grid',
-                        placeItems: 'center',
-                        width: '28px',
-                        height: '28px',
-                        padding: 0,
-                        zIndex: 5,
-                      }}
-                    >
-                      {showPassword ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                          <circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </label>
+            <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#38bdf8' }}>
+                  当前系统账号：{currentUser.username}
+                </span>
+                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', fontWeight: 600 }}>
+                  系统管理员
+                </span>
               </div>
-            )}
+              <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.7)', lineHeight: 1.5, display: 'block' }}>
+                管理员账号的用户名和密码由部署环境变量 (<code style={{ color: '#38bdf8' }}>ADMIN_USER / ADMIN_PASSWORD</code>) 设定。
+              </small>
+            </div>
 
-            {/* 居右显示的控制按钮 (保存与退出) */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
-              {!currentUser.isAdmin && (
-                <button
-                  type="button"
-                  className="action-button primary"
-                  onClick={() => {
-                    if (!newPassword.trim()) return
-                    onCredentialsChange({
-                      username: currentUser.username,
-                      password: newPassword.trim(),
-                    })
-                    setNewPassword('')
-                    alert('密码修改成功！')
-                  }}
-                >
-                  保存修改
-                </button>
-              )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px' }}>
               <button
                 type="button"
-                className="action-button ghost"
-                style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}
+                className="action-button primary"
                 onClick={onLogout}
+                style={{ background: 'rgba(239, 68, 68, 0.85)', color: '#fff', borderColor: 'transparent', padding: '10px 24px', borderRadius: '12px' }}
               >
                 退出登录
               </button>

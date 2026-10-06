@@ -1,3 +1,4 @@
+import React from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { SiteCard, NormalGlassSettings } from '../types'
@@ -8,6 +9,7 @@ type SortableGlassCardProps = {
   isEditing: boolean
   onRemove: (id: string) => void
   onEdit: (card: SiteCard) => void
+  onContextMenu?: (event: React.MouseEvent, card: SiteCard) => void
 }
 
 export function SortableGlassCard({
@@ -16,6 +18,7 @@ export function SortableGlassCard({
   isEditing,
   onRemove,
   onEdit,
+  onContextMenu,
 }: SortableGlassCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, disabled: !isEditing })
 
@@ -34,6 +37,13 @@ export function SortableGlassCard({
     <div
       ref={setNodeRef}
       className={isEditing ? 'site-tile editing' : 'site-tile'}
+      onContextMenu={(e) => {
+        if (onContextMenu) {
+          e.preventDefault()
+          e.stopPropagation()
+          onContextMenu(e, card)
+        }
+      }}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -69,7 +79,7 @@ export function SortableGlassCard({
         {...(isEditing ? listeners : {})}
       >
         <div className="site-icon" style={{ color: '#38bdf8' }}>
-          {/^https?:\/\//i.test(card.icon) || /^data:image\//i.test(card.icon) || /^blob:/i.test(card.icon) ? (
+          {/^https?:\/\//i.test(card.icon) || /^data:image\//i.test(card.icon) || /^blob:/i.test(card.icon) || card.icon.startsWith('/data/') ? (
             <img src={card.icon} alt={card.title} />
           ) : (
             card.icon || card.title.slice(0, 2)

@@ -528,7 +528,7 @@ function App() {
     return localStorage.getItem('liquid-nav-auth') === 'true'
   })
 
-  const [credentials, setCredentials] = useState<Credentials>(() => {
+  const [credentials] = useState<Credentials>(() => {
     const saved = localStorage.getItem('liquid-nav-credentials')
     if (!saved) return { username: 'admin', password: 'admin123' }
     try {
@@ -851,6 +851,28 @@ function App() {
     })
   }, [cards, selectedCategory])
 
+  const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; card: SiteCard } | null>(null)
+
+  const handleCardContextMenu = (e: React.MouseEvent, card: SiteCard) => {
+    setCardContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      card,
+    })
+  }
+
+  useEffect(() => {
+    if (!cardContextMenu) return
+    const closeMenu = () => setCardContextMenu(null)
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setCardContextMenu(null) }
+    document.addEventListener('pointerdown', closeMenu)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [cardContextMenu])
+
   if (!isAuthenticated) {
     return (
       <LoginModal
@@ -1018,6 +1040,7 @@ function App() {
                     isEditing={isEditing}
                     onRemove={removeCard}
                     onEdit={openEditCard}
+                    onContextMenu={handleCardContextMenu}
                   />
                 ))}
               </SortableContext>
@@ -1078,6 +1101,95 @@ function App() {
           onAdd={addGroup}
         />
 
+        {/* 卡片右键浮动小弹窗 (上边是删除，下边是编辑) */}
+        {cardContextMenu && (
+          <div
+            className="card-context-menu"
+            style={{
+              position: 'fixed',
+              top: `${Math.min(cardContextMenu.y, window.innerHeight - 110)}px`,
+              left: `${Math.min(cardContextMenu.x, window.innerWidth - 130)}px`,
+              zIndex: 3000,
+              borderRadius: '12px',
+              background: 'rgba(15, 23, 42, 0.92)',
+              backdropFilter: 'blur(20px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+              padding: '4px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              minWidth: '120px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                const cardToDelete = cardContextMenu.card
+                setCardContextMenu(null)
+                if (confirm(`确认删除卡片 "${cardToDelete.title}"？`)) {
+                  removeCard(cardToDelete.id)
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: 0,
+                background: 'transparent',
+                color: '#ef4444',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              <span>删除</span>
+            </button>
+
+            <div style={{ height: '1px', background: 'rgba(255,255,255,0.12)', margin: '2px 0' }} />
+
+            <button
+              type="button"
+              onClick={() => {
+                const cardToEdit = cardContextMenu.card
+                setCardContextMenu(null)
+                openEditCard(cardToEdit)
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: 0,
+                background: 'transparent',
+                color: '#f8fafc',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#38bdf8' }}>
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              <span>编辑</span>
+            </button>
+          </div>
+        )}
+
       {createPortal(
         <SettingsPanel
           showSettings={showSettings}
@@ -1105,7 +1217,6 @@ function App() {
           updateNormalGlass={updateNormalGlass}
           currentWallpaper={resolvedWallpaper}
           credentials={credentials}
-          onCredentialsChange={setCredentials}
           currentUser={{ username: 'admin', isAdmin: true }}
           onLogout={() => {
             localStorage.removeItem('liquid-nav-auth')
