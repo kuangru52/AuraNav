@@ -1,4 +1,5 @@
 import http from 'http';
+import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -88,6 +89,24 @@ const MIME_TYPES = {
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const cleanUrl = parsedUrl.pathname;
+
+  // Bing 每日壁纸官方 API 反向代理
+  if (cleanUrl === '/api/bing-wallpaper') {
+    const queryStr = parsedUrl.searchParams.toString() || 'format=js&idx=0&n=1&mkt=zh-CN';
+    const bingApiUrl = `https://www.bing.com/HPImageArchive.aspx?${queryStr}`;
+    https.get(bingApiUrl, (bingRes) => {
+      let data = '';
+      bingRes.on('data', chunk => { data += chunk; });
+      bingRes.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end(data);
+      });
+    }).on('error', (e) => {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: e.message }));
+    });
+    return;
+  }
 
   // 1. API: Login Authentication
   if (cleanUrl === '/api/login' && req.method === 'POST') {

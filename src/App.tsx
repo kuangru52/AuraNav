@@ -150,6 +150,15 @@ function App() {
     }
   })
 
+  const [wallpaperSelectionMode, setWallpaperSelectionMode] = useState<'single' | 'carousel'>(() => {
+    const saved = localStorage.getItem('auranav-wallpaper-mode')
+    return saved === 'carousel' ? 'carousel' : 'single'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('auranav-wallpaper-mode', wallpaperSelectionMode)
+  }, [wallpaperSelectionMode])
+
   const [wallpaperSettings, setWallpaperSettings] = useState<WallpaperSettings>(() => {
     const saved = localStorage.getItem(WALLPAPER_KEY)
     if (!saved) return defaultWallpaperSettings
@@ -272,6 +281,7 @@ function App() {
       normalSettings,
       pageLayoutSettings,
       wallpaperSettings,
+      wallpaperSelectionMode,
       localWallpapers,
       storedIcons,
       selectedWallpaperUrls,
@@ -304,6 +314,7 @@ function App() {
             if (configData.normalSettings) setNormalSettings(configData.normalSettings)
             if (configData.pageLayoutSettings) setPageLayoutSettings(configData.pageLayoutSettings)
             if (configData.wallpaperSettings) setWallpaperSettings(configData.wallpaperSettings)
+            if (configData.wallpaperSelectionMode) setWallpaperSelectionMode(configData.wallpaperSelectionMode)
             if (Array.isArray(configData.localWallpapers)) setLocalWallpapers(configData.localWallpapers)
             if (Array.isArray(configData.storedIcons)) setStoredIcons(configData.storedIcons)
             if (Array.isArray(configData.selectedWallpaperUrls) && configData.selectedWallpaperUrls.length > 0) {
@@ -338,16 +349,21 @@ function App() {
     }
   }
 
-  // 点击选壁纸
+  // 点击选壁纸 (单图固定模式下点击直接独占选中该壁纸；多图轮播模式下多选勾选)
   const handleToggleSelectWallpaper = (url: string) => {
-    setSelectedWallpaperUrls((prev) => {
-      if (prev.includes(url)) {
-        if (prev.length <= 1) return prev
-        return prev.filter((item) => item !== url)
-      } else {
-        return [...prev, url]
-      }
-    })
+    if (wallpaperSelectionMode === 'single') {
+      setSelectedWallpaperUrls([url])
+      setCurrentWallpaperIndex(0)
+    } else {
+      setSelectedWallpaperUrls((prev) => {
+        if (prev.includes(url)) {
+          if (prev.length <= 1) return prev
+          return prev.filter((item) => item !== url)
+        } else {
+          return [...prev, url]
+        }
+      })
+    }
   }
 
   // 加载 Bing 每日壁纸
@@ -392,9 +408,9 @@ function App() {
     return () => { active = false }
   }, [bingRefreshKey])
 
-  // 壁纸轮播定时器（只有选了多张壁纸时才开启轮播；如果只选了 1 张，绝对不轮播）
+  // 壁纸轮播定时器（仅在多图轮播模式且勾选了多张壁纸时开启；单图固定模式下绝对不轮播）
   useEffect(() => {
-    if (selectedWallpaperUrls.length <= 1) return
+    if (wallpaperSelectionMode === 'single' || selectedWallpaperUrls.length <= 1) return
 
     const intervalMs = wallpaperSettings.interval * 1000
     let remainingMs = intervalMs
@@ -422,7 +438,7 @@ function App() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [wallpaperSettings.interval, selectedWallpaperUrls.length])
+  }, [wallpaperSettings.interval, selectedWallpaperUrls.length, wallpaperSelectionMode])
 
   // 当前主屏背景显示的壁纸（100% 来源于用户勾选的 selectedWallpaperUrls）
   const currentWallpaper = useMemo(() => {
@@ -1225,6 +1241,8 @@ function App() {
           bingWallpaper={bingWallpaper}
           selectedWallpaperUrls={selectedWallpaperUrls}
           onToggleSelectWallpaper={handleToggleSelectWallpaper}
+          wallpaperSelectionMode={wallpaperSelectionMode}
+          onWallpaperSelectionModeChange={setWallpaperSelectionMode}
           normalSettings={normalSettings}
           updateNormalGlass={updateNormalGlass}
           currentWallpaper={resolvedWallpaper}
