@@ -5,6 +5,22 @@ import tailwindcss from '@tailwindcss/vite'
 import fs from 'fs'
 // @ts-ignore
 import path from 'path'
+// @ts-ignore
+import https from 'https'
+
+function compareSemver(v1: string, v2: string) {
+  const parse = (v: string) => v.replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p1 = parse(v1);
+  const p2 = parse(v2);
+  const len = Math.max(p1.length, p2.length);
+  for (let i = 0; i < len; i++) {
+    const a = p1[i] || 0;
+    const b = p2[i] || 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  return 0;
+}
 
 const syncPlugin = () => ({
   name: 'sync-api-plugin',
@@ -77,6 +93,54 @@ const syncPlugin = () => ({
     server.middlewares.use((req: any, res: any, next: any) => {
       const rawUrl = req.url || '/'
       const cleanUrl = rawUrl.split('?')[0]
+
+      // API: Check Docker Hub Updates
+      if (cleanUrl === '/api/check-update') {
+        const options = {
+          hostname: 'hub.docker.com',
+          path: '/v2/repositories/kuangru52/auranav/tags?page_size=25',
+          headers: { 'User-Agent': 'AuraNav-Server' },
+          timeout: 8000,
+        }
+
+        const reqTag = https.get(options, (tagRes: any) => {
+          let data = ''
+          tagRes.on('data', (chunk: any) => { data += chunk })
+          tagRes.on('end', () => {
+            try {
+              const json = JSON.parse(data || '{}')
+              if (json && Array.isArray(json.results)) {
+                let highestTag = ''
+                for (const t of json.results) {
+                  if (t.name && t.name !== 'latest' && /^\d+\.\d+/.test(t.name)) {
+                    if (!highestTag || compareSemver(t.name, highestTag) > 0) {
+                      highestTag = t.name
+                    }
+                  }
+                }
+                res.setHeader('Content-Type', 'application/json; charset=utf-8')
+                res.end(JSON.stringify({ success: true, latestVersion: highestTag || null }))
+                return
+              }
+            } catch {}
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify({ success: false, error: '无法解析 Docker Hub 数据' }))
+          })
+        })
+
+        reqTag.on('error', (e: any) => {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify({ success: false, error: e.message }))
+        })
+        reqTag.on('timeout', () => {
+          reqTag.destroy()
+          res.statusCode = 504
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify({ success: false, error: '连接 Docker Hub 超时' }))
+        })
+        return
+      }
 
       // API: Login (/api/login)
       if (cleanUrl === '/api/login' && req.method === 'POST') {

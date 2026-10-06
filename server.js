@@ -86,9 +86,69 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
 };
 
+function compareSemver(v1, v2) {
+  const parse = v => v.replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p1 = parse(v1);
+  const p2 = parse(v2);
+  const len = Math.max(p1.length, p2.length);
+  for (let i = 0; i < len; i++) {
+    const a = p1[i] || 0;
+    const b = p2[i] || 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  return 0;
+}
+
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const cleanUrl = parsedUrl.pathname;
+
+  // Docker Hub 远程 Tag 版本更新检测接口
+  if (cleanUrl === '/api/check-update') {
+    const options = {
+      hostname: 'hub.docker.com',
+      path: '/v2/repositories/kuangru52/auranav/tags?page_size=25',
+      headers: { 'User-Agent': 'AuraNav-Server' },
+      timeout: 8000,
+    };
+
+    const reqTag = https.get(options, (tagRes) => {
+      let data = '';
+      tagRes.on('data', chunk => { data += chunk; });
+      tagRes.on('end', () => {
+        try {
+          const json = JSON.parse(data || '{}');
+          if (json && Array.isArray(json.results)) {
+            let highestTag = '';
+            for (const t of json.results) {
+              if (t.name && t.name !== 'latest' && /^\d+\.\d+/.test(t.name)) {
+                if (!highestTag || compareSemver(t.name, highestTag) > 0) {
+                  highestTag = t.name;
+                }
+              }
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: true, latestVersion: highestTag || null }));
+            return;
+          }
+        } catch {}
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: '无法解析 Docker Hub 数据' }));
+      });
+    });
+
+    reqTag.on('error', (e) => {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    });
+    reqTag.on('timeout', () => {
+      reqTag.destroy();
+      res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: false, error: '连接 Docker Hub 超时' }));
+    });
+    return;
+  }
 
   // Bing 每日壁纸官方 API 反向代理
   if (cleanUrl === '/api/bing-wallpaper') {

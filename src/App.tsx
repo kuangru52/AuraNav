@@ -1132,27 +1132,36 @@ function App() {
           onAdd={addGroup}
         />
 
-        {/* 编辑模式下的手机侧边快速滚动拖拽条 (按住上下滑动即可轻松滚屏，绝不误触卡片拖拽) */}
+        {/* 编辑模式下的手机侧边动态滑动控制条 (按住上下滑动即可轻松滚屏，绝不误触卡片拖拽) */}
         {isEditing && (
           <div
             className="mobile-side-scroll-strip"
             title="按住此处上下拖拽控制页面快速滚动"
             onPointerDown={(e) => {
               e.preventDefault()
+              const target = e.currentTarget
+              try {
+                target.setPointerCapture(e.pointerId)
+              } catch {}
               const startY = e.clientY
               const shell = appShellRef.current || document.documentElement || document.body
-              const startScrollTop = shell.scrollTop || window.scrollY
+              const startScrollTop = shell.scrollTop || window.scrollY || document.documentElement.scrollTop
 
               const onPointerMove = (moveEvent: PointerEvent) => {
                 const deltaY = moveEvent.clientY - startY
-                const scrollFactor = 3.2
+                const scrollFactor = 3.8
+                const targetScroll = Math.max(0, startScrollTop + deltaY * scrollFactor)
                 if (appShellRef.current) {
-                  appShellRef.current.scrollTop = startScrollTop + deltaY * scrollFactor
+                  appShellRef.current.scrollTop = targetScroll
                 }
-                window.scrollTo({ top: startScrollTop + deltaY * scrollFactor })
+                window.scrollTo(0, targetScroll)
+                document.documentElement.scrollTop = targetScroll
               }
 
-              const onPointerUp = () => {
+              const onPointerUp = (upEvent: PointerEvent) => {
+                try {
+                  target.releasePointerCapture(upEvent.pointerId)
+                } catch {}
                 window.removeEventListener('pointermove', onPointerMove)
                 window.removeEventListener('pointerup', onPointerUp)
               }
@@ -1186,9 +1195,9 @@ function App() {
           >
             <span style={{ fontSize: '9px', color: '#38bdf8', fontWeight: 'bold' }}>▲</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
-              <div style={{ width: '12px', height: '2px', background: '#38bdf8', borderRadius: '2px' }} />
-              <div style={{ width: '12px', height: '2px', background: '#38bdf8', borderRadius: '2px' }} />
-              <div style={{ width: '12px', height: '2px', background: '#38bdf8', borderRadius: '2px' }} />
+              <div style={{ width: '12px', height: '3px', background: '#38bdf8', borderRadius: '2px' }} />
+              <div style={{ width: '12px', height: '3px', background: '#38bdf8', borderRadius: '2px' }} />
+              <div style={{ width: '12px', height: '3px', background: '#38bdf8', borderRadius: '2px' }} />
             </div>
             <span style={{ fontSize: '9px', color: '#38bdf8', fontWeight: 'bold' }}>▼</span>
           </div>

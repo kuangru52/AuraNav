@@ -97,23 +97,28 @@ export function SettingsPanel({
   const [showLogoGallery, setShowLogoGallery] = React.useState(false)
   const [showLogoUrlInput, setShowLogoUrlInput] = React.useState(false)
   const [showDonateModal, setShowDonateModal] = React.useState(false)
-  const [updateStatus, setUpdateStatus] = React.useState<'latest' | 'has_update' | 'checking'>('latest')
+  const [updateStatus, setUpdateStatus] = React.useState<'latest' | 'has_update' | 'checking' | 'error'>('checking')
+  const [remoteLatestVersion, setRemoteLatestVersion] = React.useState<string>('')
   const [isSpinning, setIsSpinning] = React.useState(false)
 
   React.useEffect(() => {
     if (settingsCategory === 'about') {
       setUpdateStatus('checking')
-      fetch('https://hub.docker.com/v2/repositories/kuangru52/auranav/tags')
+      fetch('/api/check-update')
         .then((res) => res.json())
         .then((data) => {
-          if (data && Array.isArray(data.results)) {
-            const hasNewTag = data.results.some((t: any) => isNewerVersion(t.name, APP_VERSION))
-            setUpdateStatus(hasNewTag ? 'has_update' : 'latest')
+          if (data && data.success && data.latestVersion) {
+            setRemoteLatestVersion(data.latestVersion)
+            if (isNewerVersion(data.latestVersion, APP_VERSION)) {
+              setUpdateStatus('has_update')
+            } else {
+              setUpdateStatus('latest')
+            }
           } else {
-            setUpdateStatus('latest')
+            setUpdateStatus('error')
           }
         })
-        .catch(() => setUpdateStatus('latest'))
+        .catch(() => setUpdateStatus('error'))
     }
   }, [settingsCategory])
 
@@ -260,61 +265,29 @@ export function SettingsPanel({
 
       <section className="settings-section" hidden={settingsCategory !== 'wallpaper'} style={{ height: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '380px' }}>
-          {/* 上半部分：选图模式（单图固定 vs 多图轮播）与 壁纸来源（网络 vs 本地） */}
           <div>
-            {/* 1. 顶层：全局选图模式控制 (单图 vs 轮播) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.15)', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>
-                  选图模式：{wallpaperSelectionMode === 'single' ? '📌 单图模式' : '🔄 轮播模式'}
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'rgba(226, 232, 240, 0.65)' }}>
-                  {wallpaperSelectionMode === 'single'
-                    ? '已选中 1 张壁纸（点击下方缩略图直接替换；勾选多张自动切为轮播）'
-                    : `已选中 ${selectedWallpaperUrls.length} 张壁纸（按设定秒数循环轮播；取消到只剩 1 张自动切为单图）`}
-                </span>
-              </div>
-              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.35)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)' }}>
+            {/* 顶层切换栏：左侧【单图 / 轮播】，右侧【网络 / 本地】 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              {/* 左侧：单图 / 轮播 */}
+              <div className="mode-switch" style={{ width: '160px' }}>
                 <button
                   type="button"
+                  className={wallpaperSelectionMode === 'single' ? 'mode-button active' : 'mode-button'}
                   onClick={() => onWallpaperSelectionModeChange('single')}
-                  style={{
-                    padding: '5px 14px',
-                    borderRadius: '8px',
-                    border: 0,
-                    background: wallpaperSelectionMode === 'single' ? '#38bdf8' : 'transparent',
-                    color: wallpaperSelectionMode === 'single' ? '#0f172a' : 'rgba(255,255,255,0.7)',
-                    fontWeight: 600,
-                    fontSize: '0.78rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
                 >
                   单图
                 </button>
                 <button
                   type="button"
+                  className={wallpaperSelectionMode === 'carousel' ? 'mode-button active' : 'mode-button'}
                   onClick={() => onWallpaperSelectionModeChange('carousel')}
-                  style={{
-                    padding: '5px 14px',
-                    borderRadius: '8px',
-                    border: 0,
-                    background: wallpaperSelectionMode === 'carousel' ? '#c084fc' : 'transparent',
-                    color: wallpaperSelectionMode === 'carousel' ? '#fff' : 'rgba(255,255,255,0.7)',
-                    fontWeight: 600,
-                    fontSize: '0.78rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
                 >
                   轮播
                 </button>
               </div>
-            </div>
 
-            {/* 2. 第二层：壁纸来源切换（网络 vs 本地） */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
-              <div className="mode-switch" style={{ width: '220px', margin: '0 auto' }}>
+              {/* 右侧：网络 / 本地 */}
+              <div className="mode-switch" style={{ width: '160px' }}>
                 <button
                   type="button"
                   className={wallpaperTab === 'online' ? 'mode-button active' : 'mode-button'}
@@ -1475,7 +1448,7 @@ export function SettingsPanel({
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px', borderRadius: '999px', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e2e8f0' }}>版本号：v{APP_VERSION}</span>
                 {updateStatus === 'checking' && (
-                  <span style={{ fontSize: '0.78rem', color: 'rgba(226, 232, 240, 0.6)' }}>检查更新中…</span>
+                  <span style={{ fontSize: '0.78rem', color: 'rgba(226, 232, 240, 0.6)' }}>连接 Docker Hub 检查更新中…</span>
                 )}
                 {updateStatus === 'latest' && (
                   <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.4)' }}>
@@ -1484,7 +1457,12 @@ export function SettingsPanel({
                 )}
                 {updateStatus === 'has_update' && (
                   <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
-                    💡 发现新版本已推送到 Docker Hub！
+                    💡 发现新版本 {remoteLatestVersion} 已推送到 Docker Hub！
+                  </span>
+                )}
+                {updateStatus === 'error' && (
+                  <span style={{ fontSize: '0.78rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(239, 68, 68, 0.18)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)' }}>
+                    ⚠️ 网络受限，无法连接 Docker Hub 检查
                   </span>
                 )}
               </div>
