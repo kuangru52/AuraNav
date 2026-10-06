@@ -9,10 +9,15 @@ const PUBLIC_DIR = path.join(__dirname, 'dist');
 const DATA_DIR = path.join(__dirname, 'data');
 const ICONS_DIR = path.join(DATA_DIR, 'icons');
 const WALLPAPERS_DIR = path.join(DATA_DIR, 'wallpapers');
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const SYNC_FILE = path.join(DATA_DIR, 'sync.json');
 
+// Ensure required data directories exist
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(ICONS_DIR)) fs.mkdirSync(ICONS_DIR, { recursive: true });
 if (!fs.existsSync(WALLPAPERS_DIR)) fs.mkdirSync(WALLPAPERS_DIR, { recursive: true });
 
+// Read Admin credentials from environment variables (defaults: admin / admin123)
 const getAdminUser = () => {
   if (process.env.ADMIN_USER && process.env.ADMIN_USER.trim()) return process.env.ADMIN_USER.trim();
   if (process.env.admin_user && process.env.admin_user.trim()) return process.env.admin_user.trim();
@@ -27,44 +32,42 @@ const getAdminPassword = () => {
   return 'admin123';
 };
 
-// Admin credentials from environment variables (defaults: admin / admin123)
 const ADMIN_USER = getAdminUser();
 const ADMIN_PASSWORD = getAdminPassword();
 
-const USERS_FILE = fs.existsSync(DATA_DIR)
-  ? path.join(DATA_DIR, 'users.json')
-  : path.join(__dirname, 'users.json');
-
-// Helper to get ordinary users list [{ username, password }]
-const getOrdinaryUsers = () => {
-  try {
-    if (fs.existsSync(USERS_FILE)) {
-      const data = fs.readFileSync(USERS_FILE, 'utf-8');
-      const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : [];
-    }
-  } catch {}
-  return [];
-};
-
-// Helper to save ordinary users list
-const saveOrdinaryUsers = (users) => {
-  try {
-    const dir = path.dirname(USERS_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
-  } catch (e) {
-    console.error('保存普通用户列表失败:', e);
-  }
-};
-
-// Helper to get user-specific sync file path
-const getUserSyncFilePath = (username) => {
-  const safeName = (username || 'admin').replace(/[^a-zA-Z0-9_-]/g, '_');
-  if (fs.existsSync(DATA_DIR)) {
-    return path.join(DATA_DIR, `sync-${safeName}.json`);
-  }
-  return path.join(__dirname, `sync-${safeName}.json`);
+// Default initial cards data (GitHub, Bilibili, Zhihu)
+const DEFAULT_CARDS_DATA = {
+  version: '1.0',
+  groups: ['开发', '娱乐', '阅读'],
+  cards: [
+    {
+      id: '1',
+      title: 'GitHub',
+      url: 'https://github.com',
+      description: '全球最大的开源软件代码托管与协同开发平台',
+      icon: 'https://github.githubassets.com/favicons/favicon.svg',
+      category: '开发',
+      accent: '',
+    },
+    {
+      id: '2',
+      title: '哔哩哔哩 (Bilibili)',
+      url: 'https://www.bilibili.com',
+      description: '国内知名年轻人文化弹幕视频分享与学习社区',
+      icon: 'https://www.bilibili.com/favicon.ico',
+      category: '娱乐',
+      accent: '',
+    },
+    {
+      id: '3',
+      title: '知乎 (Zhihu)',
+      url: 'https://www.zhihu.com',
+      description: '中文互联网高质量问答与知识创作者分享平台',
+      icon: 'https://static.zhihu.com/heifetz/assets/apple-touch-icon-152.abcdef.png',
+      category: '阅读',
+      accent: '',
+    },
+  ],
 };
 
 const MIME_TYPES = {
@@ -74,6 +77,8 @@ const MIME_TYPES = {
   '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.woff': 'font/woff',
@@ -84,139 +89,41 @@ const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const cleanUrl = parsedUrl.pathname;
 
-  // API endpoint: Get/Add/Delete Users
-  if (cleanUrl === '/api/users') {
-    if (req.method === 'GET') {
-      const users = getOrdinaryUsers().map(u => ({ username: u.username, role: 'user' }));
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
-        adminUser: ADMIN_USER,
-        ordinaryUsers: users,
-      }));
-      return;
-    }
+  // 1. API: Login Authentication
+  if (cleanUrl === '/api/login' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { username, password } = JSON.parse(body || '{}');
+        const inputUser = (username || '').trim();
+        const inputPass = (password || '').trim();
 
-    if (req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
-        try {
-          const { username, password } = JSON.parse(body || '{}');
-          if (!username || !password) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: false, error: '用户名和密码不能为空' }));
-            return;
-          }
-          if (username.trim().toLowerCase() === ADMIN_USER.toLowerCase()) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: false, error: '不能使用管理员用户名' }));
-            return;
-          }
-          const currentList = getOrdinaryUsers();
-          if (currentList.some(u => u.username.toLowerCase() === username.trim().toLowerCase())) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: false, error: '用户已存在' }));
-            return;
-          }
-          currentList.push({ username: username.trim(), password: password.trim() });
-          saveOrdinaryUsers(currentList);
+        if (inputUser.toLowerCase() === ADMIN_USER.toLowerCase() && inputPass === ADMIN_PASSWORD) {
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: true, message: '普通用户创建成功' }));
-        } catch (e) {
-          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: false, error: e.message }));
-        }
-      });
-      return;
-    }
-
-    if (req.method === 'DELETE') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
-        try {
-          const { username } = JSON.parse(body || '{}');
-          if (!username) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: false, error: '需要提供要删除的用户名' }));
-            return;
-          }
-          let currentList = getOrdinaryUsers();
-          currentList = currentList.filter(u => u.username.toLowerCase() !== username.trim().toLowerCase());
-          saveOrdinaryUsers(currentList);
-
-          // Delete user data file if exists
-          const userFile = getUserSyncFilePath(username);
-          if (fs.existsSync(userFile)) {
-            try { fs.unlinkSync(userFile); } catch {}
-          }
-
-          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: true, message: '用户已删除' }));
-        } catch (e) {
-          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: false, error: e.message }));
-        }
-      });
-      return;
-    }
-  }
-
-  // API endpoint: Login Authentication
-  if (cleanUrl === '/api/login') {
-    if (req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
-        try {
-          const { username, password } = JSON.parse(body || '{}');
-          const inputUser = (username || '').trim();
-          const inputPass = (password || '').trim();
-
-          // Check Admin
-          if (inputUser.toLowerCase() === ADMIN_USER.toLowerCase() && inputPass === ADMIN_PASSWORD) {
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: true, user: { username: ADMIN_USER, isAdmin: true } }));
-            return;
-          }
-
-          // Check Ordinary Users
-          const ordinary = getOrdinaryUsers();
-          const matched = ordinary.find(u => u.username.toLowerCase() === inputUser.toLowerCase() && u.password === inputPass);
-          if (matched) {
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ success: true, user: { username: matched.username, isAdmin: false } }));
-            return;
-          }
-
+          res.end(JSON.stringify({ success: true, user: { username: ADMIN_USER, isAdmin: true } }));
+        } else {
           res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ success: false, error: '用户名或密码错误' }));
-        } catch (e) {
-          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: false, error: e.message }));
         }
-      });
-      return;
-    }
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
   }
 
-  // API endpoint for cross-device synchronization per user
+  // 2. API: Cards & Groups Data Sync (sync.json)
   if (cleanUrl === '/api/sync') {
-    const userQuery = parsedUrl.searchParams.get('username') || ADMIN_USER;
-    const targetFile = getUserSyncFilePath(userQuery);
-
     if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
         try {
-          const targetDir = path.dirname(targetFile);
-          if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-          }
-          fs.writeFileSync(targetFile, body, 'utf-8');
+          fs.writeFileSync(SYNC_FILE, body, 'utf-8');
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ success: true, message: 'Sync data saved on server' }));
+          res.end(JSON.stringify({ success: true, message: 'sync.json 保存成功' }));
         } catch (e) {
           res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ success: false, error: e.message }));
@@ -227,8 +134,46 @@ const server = http.createServer((req, res) => {
 
     if (req.method === 'GET') {
       try {
-        if (fs.existsSync(targetFile)) {
-          const data = fs.readFileSync(targetFile, 'utf-8');
+        if (fs.existsSync(SYNC_FILE)) {
+          const data = fs.readFileSync(SYNC_FILE, 'utf-8');
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(data);
+        } else {
+          // 初始化默认 sync.json 数据
+          fs.writeFileSync(SYNC_FILE, JSON.stringify(DEFAULT_CARDS_DATA, null, 2), 'utf-8');
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(DEFAULT_CARDS_DATA));
+        }
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+      return;
+    }
+  }
+
+  // 3. API: Configuration Parameters Sync (config.json)
+  if (cleanUrl === '/api/config') {
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          fs.writeFileSync(CONFIG_FILE, body, 'utf-8');
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: true, message: 'config.json 保存成功' }));
+        } catch (e) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: e.message }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'GET') {
+      try {
+        if (fs.existsSync(CONFIG_FILE)) {
+          const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(data);
         } else {
@@ -243,20 +188,7 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // Serve uploaded icons and wallpapers from data/icons/ or data/wallpapers/
-  if (cleanUrl.startsWith('/data/')) {
-    const subPath = cleanUrl.replace(/^\/data\//, '');
-    const targetFilePath = path.join(DATA_DIR, subPath);
-    if (fs.existsSync(targetFilePath) && fs.statSync(targetFilePath).isFile()) {
-      const ext = path.extname(targetFilePath);
-      const cType = MIME_TYPES[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': cType });
-      res.end(fs.readFileSync(targetFilePath));
-      return;
-    }
-  }
-
-  // API endpoint: Upload icon or wallpaper file to disk folders (data/icons or data/wallpapers)
+  // 4. API: Upload Icon or Wallpaper to data/icons/ or data/wallpapers/
   if (cleanUrl === '/api/upload' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -280,16 +212,16 @@ const server = http.createServer((req, res) => {
           buffer = Buffer.from(base64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
         }
 
-        const subDir = type === 'wallpaper' ? WALLPAPERS_DIR : ICONS_DIR;
-        if (!fs.existsSync(subDir)) fs.mkdirSync(subDir, { recursive: true });
+        const targetSubDir = type === 'wallpaper' ? WALLPAPERS_DIR : ICONS_DIR;
+        if (!fs.existsSync(targetSubDir)) fs.mkdirSync(targetSubDir, { recursive: true });
 
         const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
-        const filePath = path.join(subDir, safeName);
-        fs.writeFileSync(filePath, buffer);
+        const targetPath = path.join(targetSubDir, safeName);
+        fs.writeFileSync(targetPath, buffer);
 
-        const fileUrl = `/data/${type === 'wallpaper' ? 'wallpapers' : 'icons'}/${safeName}`;
+        const relativeUrl = `/data/${type === 'wallpaper' ? 'wallpapers' : 'icons'}/${safeName}`;
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ success: true, url: fileUrl }));
+        res.end(JSON.stringify({ success: true, url: relativeUrl }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ success: false, error: e.message }));
@@ -298,9 +230,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  let filePath = path.join(PUBLIC_DIR, cleanUrl === '/' ? 'index.html' : cleanUrl);
+  // 5. Static files serving from data/ (data/icons/ and data/wallpapers/)
+  if (cleanUrl.startsWith('/data/')) {
+    const subPath = cleanUrl.replace(/^\/data\//, '');
+    const targetFilePath = path.join(DATA_DIR, subPath);
+    if (fs.existsSync(targetFilePath) && fs.statSync(targetFilePath).isFile()) {
+      const ext = path.extname(targetFilePath);
+      const cType = MIME_TYPES[ext] || 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': cType });
+      res.end(fs.readFileSync(targetFilePath));
+      return;
+    }
+  }
 
-  // If file doesn't exist, fallback to index.html for SPA routing
+  // 6. SPA Static files serving from dist/
+  let filePath = path.join(PUBLIC_DIR, cleanUrl === '/' ? 'index.html' : cleanUrl);
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(PUBLIC_DIR, 'index.html');
   }
@@ -320,6 +264,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`AuraNav Server with Multi-User Sync running at http://localhost:${PORT}/`);
+  console.log(`AuraNav Server running at http://localhost:${PORT}/`);
   console.log(`Admin User: ${ADMIN_USER}`);
 });

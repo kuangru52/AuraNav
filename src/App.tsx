@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
@@ -12,57 +12,49 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { Header } from './components/Header'
 import { LoginModal } from './components/LoginModal'
 import { SearchBar } from './components/SearchBar'
-import { getOnlineWallpapers } from './utils/wallpaperUtils'
 
-const STORAGE_KEY = 'liquid-nav-cards'
+const CARDS_STORAGE_KEY = 'liquid-nav-cards'
+const GROUPS_STORAGE_KEY = 'liquid-nav-groups'
 const WALLPAPER_KEY = 'liquid-nav-wallpaper'
 const LOCAL_WALLPAPERS_KEY = 'liquid-nav-local-wallpapers'
 const STORED_ICONS_KEY = 'liquid-nav-stored-icons'
-const GROUPS_KEY = 'liquid-nav-groups'
-const SAMPLE_CARDS_KEY = 'liquid-nav-sample-cards-v4'
+const SELECTED_WALLPAPERS_KEY = 'selected-wallpapers'
 const MAX_INTERVAL_SECONDS = Math.floor(Number.MAX_SAFE_INTEGER / 1000)
 const MAX_TIMEOUT_DELAY = 2_147_483_647
 const DEFAULT_FALLBACK_WALLPAPER = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80'
 
-const defaultGroups = ['开发', '效率', '媒体', 'AI', '设计']
-const legacyGroupNames: Record<string, string> = {
-  Development: '开发',
-  Productivity: '效率',
-  Media: '媒体',
-  Design: '设计',
-}
+// 默认 3 个示例卡片数据与 3 个初始分组
+const defaultGroups = ['开发', '娱乐', '阅读']
 
 const defaultCards: SiteCard[] = [
   {
     id: '1',
     title: 'GitHub',
     url: 'https://github.com',
-    description: '代码与协作',
-    icon: 'https://github.com/favicon.ico',
+    description: '全球最大的开源代码托管与协同平台',
+    icon: 'https://github.githubassets.com/favicons/favicon.svg',
     category: '开发',
     accent: '#7dd3fc',
   },
   {
     id: '2',
-    title: '哔哩哔哩',
+    title: '哔哩哔哩 (Bilibili)',
     url: 'https://www.bilibili.com',
-    description: '视频与弹幕社区',
+    description: '国内知名年轻人弹幕视频分享与学习社区',
     icon: 'https://www.bilibili.com/favicon.ico',
-    category: '媒体',
+    category: '娱乐',
     accent: '#f472b6',
   },
   {
     id: '3',
-    title: '知乎',
+    title: '知乎 (Zhihu)',
     url: 'https://www.zhihu.com',
-    description: '问题与知识分享',
-    icon: 'https://www.zhihu.com/favicon.ico',
-    category: '效率',
+    description: '中文互联网高质量问答与知识创作者平台',
+    icon: 'https://static.zhihu.com/heifetz/assets/apple-touch-icon-152.abcdef.png',
+    category: '阅读',
     accent: '#60a5fa',
   },
 ]
-
-const sampleCards: SiteCard[] = []
 
 const defaultWallpaperSettings: WallpaperSettings = {
   mode: 'bing',
@@ -106,36 +98,38 @@ const defaultPageLayoutSettings: PageLayoutSettings = {
   defaultSearchEngine: 'baidu',
 }
 
-function App() {
-  const [cards, setCards] = useState<SiteCard[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved) return defaultCards
+const defaultNormalSettings: NormalGlassSettings = {
+  blur: 12,
+  opacity: 0.25,
+  cornerRadius: 16,
+  edgeHighlight: 0.2,
+}
 
+function App() {
+  // 1. 卡片与分组状态 (存储于 sync.json)
+  const [cards, setCards] = useState<SiteCard[]>(() => {
+    const saved = localStorage.getItem(CARDS_STORAGE_KEY)
+    if (!saved) return defaultCards
     try {
-      return JSON.parse(saved) as SiteCard[]
+      const parsed = JSON.parse(saved)
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultCards
     } catch {
       return defaultCards
     }
   })
 
   const [groups, setGroups] = useState<string[]>(() => {
-    const saved = localStorage.getItem(GROUPS_KEY)
+    const saved = localStorage.getItem(GROUPS_STORAGE_KEY)
     if (!saved) return defaultGroups
     try {
       const parsed = JSON.parse(saved) as string[]
-      return Array.isArray(parsed) ? parsed.map((group) => legacyGroupNames[group] ?? group) : defaultGroups
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultGroups
     } catch {
       return defaultGroups
     }
   })
 
-  const defaultNormalSettings: NormalGlassSettings = {
-    blur: 12,
-    opacity: 0.25,
-    cornerRadius: 16,
-    edgeHighlight: 0.2,
-  }
-
+  // 2. 各种个性化设置状态 (存储于 config.json)
   const [normalSettings, setNormalSettings] = useState<NormalGlassSettings>(() => {
     const saved = localStorage.getItem('liquid-nav-normal-glass')
     if (!saved) return defaultNormalSettings
@@ -156,20 +150,16 @@ function App() {
     }
   })
 
-  useEffect(() => {
-    localStorage.setItem('auranav-page-layout', JSON.stringify(pageLayoutSettings))
-  }, [pageLayoutSettings])
-
   const [wallpaperSettings, setWallpaperSettings] = useState<WallpaperSettings>(() => {
     const saved = localStorage.getItem(WALLPAPER_KEY)
     if (!saved) return defaultWallpaperSettings
-
     try {
       const parsed = { ...defaultWallpaperSettings, ...JSON.parse(saved) }
-      const interval = Number(parsed.interval)
       return {
         ...parsed,
-        interval: Number.isFinite(interval) ? Math.min(MAX_INTERVAL_SECONDS, Math.max(3, interval)) : defaultWallpaperSettings.interval,
+        interval: Number.isFinite(Number(parsed.interval))
+          ? Math.min(MAX_INTERVAL_SECONDS, Math.max(3, Number(parsed.interval)))
+          : defaultWallpaperSettings.interval,
       }
     } catch {
       return defaultWallpaperSettings
@@ -180,9 +170,8 @@ function App() {
   const [localWallpapers, setLocalWallpapers] = useState<string[]>(() => {
     const saved = localStorage.getItem(LOCAL_WALLPAPERS_KEY)
     if (!saved) return []
-
     try {
-      const parsed = JSON.parse(saved) as string[]
+      const parsed = JSON.parse(saved)
       return Array.isArray(parsed) ? parsed : []
     } catch {
       return []
@@ -192,73 +181,76 @@ function App() {
   const [storedIcons, setStoredIcons] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORED_ICONS_KEY)
     if (!saved) return []
-
     try {
-      const parsed = JSON.parse(saved) as string[]
+      const parsed = JSON.parse(saved)
       return Array.isArray(parsed) ? parsed : []
     } catch {
       return []
     }
   })
 
-  const lastLocalMutationTime = useRef<number>(0)
-  const isInitialLoad = useRef<boolean>(true)
-
-  const [currentUser, setCurrentUser] = useState<{ username: string; isAdmin: boolean }>(() => {
-    const saved = localStorage.getItem('liquid-nav-current-user')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch {}
-    }
-    return { username: 'admin', isAdmin: true }
-  })
-
-  const safeSaveLocal = (key: string, value: any) => {
-    try {
-      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value))
-    } catch (e) {
-      console.warn(`[Storage] localStorage 限额超限，改由云端同步保存 (${key})`, e)
-    }
-  }
-
-  const autoSyncToServer = useMemo(() => {
-    let timer: number | null = null
-    return (payload: any) => {
-      if (timer) window.clearTimeout(timer)
-      timer = window.setTimeout(async () => {
-        try {
-          await fetch(`/api/sync?username=${encodeURIComponent(currentUser.username)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-        } catch (e) {
-          console.warn('[Sync] 自动同步至服务端失败', e)
-        }
-      }, 600)
-    }
-  }, [currentUser.username])
-
   const [selectedWallpaperUrls, setSelectedWallpaperUrls] = useState<string[]>(() => {
-    const saved = localStorage.getItem('selected-wallpapers')
+    const saved = localStorage.getItem(SELECTED_WALLPAPERS_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) return parsed
       } catch {}
     }
-    return ['https://www.bing.com/favicon.ico']
+    return [DEFAULT_FALLBACK_WALLPAPER]
   })
 
+  const lastLocalMutationTime = useRef<number>(0)
+  const isInitialLoad = useRef<boolean>(true)
+
+  const [bingWallpaper, setBingWallpaper] = useState<string>(DEFAULT_FALLBACK_WALLPAPER)
+  const [bingRefreshKey, setBingRefreshKey] = useState(0)
+  const [isBingLoading, setIsBingLoading] = useState(false)
+  const [bingWallpaperError, setBingWallpaperError] = useState(false)
+  const [currentWallpaperIndex, setCurrentWallpaperIndex] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState<string>('全部')
+
+  // 安全写本地缓存
+  const safeSaveLocal = (key: string, value: any) => {
+    try {
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value))
+    } catch {}
+  }
+
+  // 服务端自动同步函数
+  const autoSyncToServer = useMemo(() => {
+    let timer: number | null = null
+    return (syncPayload: any, configPayload: any) => {
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(async () => {
+        try {
+          // 同步卡片数据到 sync.json
+          await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(syncPayload),
+          })
+          // 同步设置数据到 config.json
+          await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(configPayload),
+          })
+        } catch {}
+      }, 600)
+    }
+  }, [])
+
+  // 监听状态改变并同步写本地及服务端
   useEffect(() => {
-    safeSaveLocal(STORAGE_KEY, cards)
-    safeSaveLocal(GROUPS_KEY, groups)
+    safeSaveLocal(CARDS_STORAGE_KEY, cards)
+    safeSaveLocal(GROUPS_STORAGE_KEY, groups)
     safeSaveLocal('liquid-nav-normal-glass', normalSettings)
+    safeSaveLocal('auranav-page-layout', pageLayoutSettings)
     safeSaveLocal(WALLPAPER_KEY, wallpaperSettings)
     safeSaveLocal(LOCAL_WALLPAPERS_KEY, localWallpapers)
     safeSaveLocal(STORED_ICONS_KEY, storedIcons)
-    safeSaveLocal('selected-wallpapers', selectedWallpaperUrls)
+    safeSaveLocal(SELECTED_WALLPAPERS_KEY, selectedWallpaperUrls)
 
     if (isInitialLoad.current) {
       isInitialLoad.current = false
@@ -267,78 +259,86 @@ function App() {
 
     lastLocalMutationTime.current = Date.now()
 
-    const payload = {
+    const syncPayload = {
       version: '1.0',
       syncTime: lastLocalMutationTime.current,
       cards,
       groups,
+    }
+
+    const configPayload = {
+      version: '1.0',
+      syncTime: lastLocalMutationTime.current,
       normalSettings,
+      pageLayoutSettings,
       wallpaperSettings,
       localWallpapers,
       storedIcons,
       selectedWallpaperUrls,
     }
-    autoSyncToServer(payload)
-  }, [cards, groups, normalSettings, wallpaperSettings, localWallpapers, storedIcons, selectedWallpaperUrls, autoSyncToServer])
 
+    autoSyncToServer(syncPayload, configPayload)
+  }, [cards, groups, normalSettings, pageLayoutSettings, wallpaperSettings, localWallpapers, storedIcons, selectedWallpaperUrls, autoSyncToServer])
+
+  // 从服务端初始化及轮询加载 sync.json 和 config.json
   useEffect(() => {
-    const pollSync = async () => {
+    const loadServerData = async () => {
       if (Date.now() - lastLocalMutationTime.current < 3000) return
 
       try {
-        const res = await fetch(`/api/sync?username=${encodeURIComponent(currentUser.username)}`)
-        if (!res.ok) return
-        const data = await res.json()
-        if (data && Array.isArray(data.cards) && data.cards.length > 0) {
-          if (!data.syncTime || data.syncTime >= lastLocalMutationTime.current) {
-            setCards(data.cards)
-            if (data.groups) setGroups(data.groups)
-            if (data.normalSettings) setNormalSettings(data.normalSettings)
-            if (data.wallpaperSettings) setWallpaperSettings(data.wallpaperSettings)
-            if (Array.isArray(data.localWallpapers)) setLocalWallpapers(data.localWallpapers)
-            if (Array.isArray(data.storedIcons)) setStoredIcons(data.storedIcons)
-            if (Array.isArray(data.selectedWallpaperUrls) && data.selectedWallpaperUrls.length > 0) {
-              setSelectedWallpaperUrls(data.selectedWallpaperUrls)
+        // 1. 读取 sync.json
+        const syncRes = await fetch('/api/sync')
+        if (syncRes.ok) {
+          const syncData = await syncRes.json()
+          if (syncData && Array.isArray(syncData.cards) && syncData.cards.length > 0) {
+            setCards(syncData.cards)
+            if (Array.isArray(syncData.groups)) setGroups(syncData.groups)
+          }
+        }
+
+        // 2. 读取 config.json
+        const configRes = await fetch('/api/config')
+        if (configRes.ok) {
+          const configData = await configRes.json()
+          if (configData) {
+            if (configData.normalSettings) setNormalSettings(configData.normalSettings)
+            if (configData.pageLayoutSettings) setPageLayoutSettings(configData.pageLayoutSettings)
+            if (configData.wallpaperSettings) setWallpaperSettings(configData.wallpaperSettings)
+            if (Array.isArray(configData.localWallpapers)) setLocalWallpapers(configData.localWallpapers)
+            if (Array.isArray(configData.storedIcons)) setStoredIcons(configData.storedIcons)
+            if (Array.isArray(configData.selectedWallpaperUrls) && configData.selectedWallpaperUrls.length > 0) {
+              setSelectedWallpaperUrls(configData.selectedWallpaperUrls)
             }
           }
         }
       } catch {}
     }
 
-    pollSync()
-    const interval = setInterval(pollSync, 8000)
+    loadServerData()
+    const interval = setInterval(loadServerData, 8000)
     return () => clearInterval(interval)
-  }, [currentUser.username])
+  }, [])
 
-  const updateNormalGlass = <K extends keyof NormalGlassSettings>(key: K, value: NormalGlassSettings[K]) => {
-    setNormalSettings((prev) => ({ ...prev, [key]: value }))
+  // 上传图片（图标/壁纸）到服务器磁盘目录（/app/data/icons 或 /app/data/wallpapers）
+  const uploadImageToServer = async (file: File, type: 'icon' | 'wallpaper'): Promise<string> => {
+    try {
+      const base64 = await compressImage(file, type === 'icon' ? 128 : 1920, type === 'icon' ? 128 : 1080, 0.85)
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, base64 }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success && data.url) {
+        return data.url
+      }
+      return base64
+    } catch {
+      return await compressImage(file)
+    }
   }
 
-  const [bingWallpaper, setBingWallpaper] = useState<string>(DEFAULT_FALLBACK_WALLPAPER)
-  const [bingRefreshKey, setBingRefreshKey] = useState(0)
-  const [isBingLoading, setIsBingLoading] = useState(false)
-  const [bingWallpaperError, setBingWallpaperError] = useState(false)
-  const [currentWallpaperIndex, setCurrentWallpaperIndex] = useState(0)
-  const [selectedCategory, setSelectedCategory] = useState<string>(() => groups[0] ?? '开发')
-
-  // 自动清理不存在于当前有效库中的旧壁纸 URL，保证屏幕轮播壁纸与设置打勾选中的缩略图 100% 一致
-  useEffect(() => {
-    const validOnline = getOnlineWallpapers(bingWallpaper, bingRefreshKey).map((item) => item.url)
-    const allValidUrls = [...validOnline, ...localWallpapers]
-
-    setSelectedWallpaperUrls((prev) => {
-      const validPrev = prev.filter((url) => allValidUrls.includes(url))
-      if (validPrev.length === 0) {
-        return [bingWallpaper]
-      }
-      return validPrev
-    })
-  }, [bingWallpaper, bingRefreshKey, localWallpapers])
-
-  useEffect(() => {
-    localStorage.setItem('selected-wallpapers', JSON.stringify(selectedWallpaperUrls))
-  }, [selectedWallpaperUrls])
-
+  // 点击选壁纸
   const handleToggleSelectWallpaper = (url: string) => {
     setSelectedWallpaperUrls((prev) => {
       if (prev.includes(url)) {
@@ -349,6 +349,122 @@ function App() {
       }
     })
   }
+
+  // 加载 Bing 每日壁纸
+  useEffect(() => {
+    let active = true
+    async function loadBingWallpaper() {
+      const today = new Date().toISOString().slice(0, 10)
+      const cachedDate = localStorage.getItem('liquid-nav-bing-date')
+      const cachedUrl = localStorage.getItem('liquid-nav-bing-url')
+
+      if (cachedDate === today && cachedUrl) {
+        if (active) setBingWallpaper(cachedUrl)
+        return
+      }
+
+      setIsBingLoading(true)
+      setBingWallpaperError(false)
+      try {
+        const response = await fetch(`/api/bing-wallpaper?format=js&idx=0&n=1&mkt=zh-CN&_=${Date.now()}`, { cache: 'no-store' })
+        if (!response.ok) throw new Error('壁纸请求失败')
+        const data = await response.json()
+        const imageUrl = data?.images?.[0]?.url
+        if (!imageUrl) throw new Error('未获取到每日壁纸')
+        const fullUrl = /^https?:\/\//i.test(imageUrl) ? imageUrl : `https://www.bing.com${imageUrl}`
+
+        if (active) {
+          setBingWallpaper(fullUrl)
+          localStorage.setItem('liquid-nav-bing-date', today)
+          localStorage.setItem('liquid-nav-bing-url', fullUrl)
+        }
+      } catch {
+        if (active) {
+          if (cachedUrl) setBingWallpaper(cachedUrl)
+          setBingWallpaperError(true)
+        }
+      } finally {
+        if (active) setIsBingLoading(false)
+      }
+    }
+
+    loadBingWallpaper()
+    return () => { active = false }
+  }, [bingRefreshKey])
+
+  // 壁纸轮播定时器（只有选了多张壁纸时才开启轮播；如果只选了 1 张，绝对不轮播）
+  useEffect(() => {
+    if (selectedWallpaperUrls.length <= 1) return
+
+    const intervalMs = wallpaperSettings.interval * 1000
+    let remainingMs = intervalMs
+    let active = true
+    let timer: number
+
+    const scheduleNextRotation = () => {
+      const delay = Math.min(remainingMs, MAX_TIMEOUT_DELAY)
+      timer = window.setTimeout(() => {
+        if (!active) return
+
+        remainingMs -= delay
+        if (remainingMs <= 0) {
+          setCurrentWallpaperIndex((prev) => (prev + 1) % selectedWallpaperUrls.length)
+          remainingMs = intervalMs
+        }
+
+        scheduleNextRotation()
+      }, delay)
+    }
+
+    scheduleNextRotation()
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [wallpaperSettings.interval, selectedWallpaperUrls.length])
+
+  // 当前主屏背景显示的壁纸（100% 来源于用户勾选的 selectedWallpaperUrls）
+  const currentWallpaper = useMemo(() => {
+    if (selectedWallpaperUrls.length > 0) {
+      const idx = currentWallpaperIndex % selectedWallpaperUrls.length
+      return selectedWallpaperUrls[idx] ?? selectedWallpaperUrls[0] ?? DEFAULT_FALLBACK_WALLPAPER
+    }
+    return DEFAULT_FALLBACK_WALLPAPER
+  }, [currentWallpaperIndex, selectedWallpaperUrls])
+
+  const [resolvedWallpaper, setResolvedWallpaper] = useState<string>('')
+
+  useEffect(() => {
+    if (!currentWallpaper) {
+      setResolvedWallpaper('')
+      return
+    }
+
+    let active = true
+    async function loadBlobWallpaper() {
+      if (currentWallpaper.startsWith('data:') || currentWallpaper.startsWith('blob:')) {
+        if (active) setResolvedWallpaper(currentWallpaper)
+        return
+      }
+
+      try {
+        const res = await fetch(currentWallpaper, { mode: 'cors' })
+        const blob = await res.blob()
+        const blobUrl = URL.createObjectURL(blob)
+        if (active) {
+          setResolvedWallpaper(blobUrl)
+        }
+      } catch {
+        if (active) setResolvedWallpaper(currentWallpaper)
+      }
+    }
+
+    loadBlobWallpaper()
+    return () => { active = false }
+  }, [currentWallpaper])
+
+  // 配色方案与交互方法
   const [currentPaletteIndex, setCurrentPaletteIndex] = useState(0)
 
   const colorPalettes = [
@@ -400,6 +516,10 @@ function App() {
     )
   }
 
+  const updateNormalGlass = <K extends keyof NormalGlassSettings>(key: K, value: NormalGlassSettings[K]) => {
+    setNormalSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
   const [isEditing, setIsEditing] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showQuickMenu, setShowQuickMenu] = useState(false)
@@ -407,75 +527,6 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('liquid-nav-auth') === 'true'
   })
-
-  const [ordinaryUsers, setOrdinaryUsers] = useState<{ username: string }[]>([])
-
-  const fetchUsers = useCallback(async () => {
-    try {
-      const res = await fetch('/api/users')
-      if (!res.ok) return
-      const data = await res.json()
-      if (data) {
-        if (Array.isArray(data.ordinaryUsers)) {
-          setOrdinaryUsers(data.ordinaryUsers)
-        }
-        if (data.adminUser) {
-          setCurrentUser((prev) => {
-            if (prev.isAdmin) {
-              const updated = { ...prev, username: data.adminUser }
-              localStorage.setItem('liquid-nav-current-user', JSON.stringify(updated))
-              return updated
-            }
-            return prev
-          })
-        }
-      }
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchUsers()
-    }
-  }, [isAuthenticated, fetchUsers])
-
-  const handleCreateOrdinaryUser = async (u: string, p: string) => {
-    try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        alert('普通账号创建成功！')
-        fetchUsers()
-      } else {
-        alert(data.error || '创建用户失败')
-      }
-    } catch {
-      alert('创建用户请求失败')
-    }
-  }
-
-  const handleDeleteOrdinaryUser = async (u: string) => {
-    try {
-      const res = await fetch('/api/users', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        alert('用户已成功删除')
-        fetchUsers()
-      } else {
-        alert(data.error || '删除失败')
-      }
-    } catch {
-      alert('删除用户请求失败')
-    }
-  }
 
   const [credentials, setCredentials] = useState<Credentials>(() => {
     const saved = localStorage.getItem('liquid-nav-credentials')
@@ -486,9 +537,7 @@ function App() {
       return { username: 'admin', password: 'admin123' }
     }
   })
-  useEffect(() => {
-    localStorage.setItem('liquid-nav-credentials', JSON.stringify(credentials))
-  }, [credentials])
+
   const [showForm, setShowForm] = useState(false)
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
   const [showGroupForm, setShowGroupForm] = useState(false)
@@ -501,6 +550,7 @@ function App() {
     category: groups[0] ?? '开发',
     accent: '#a5b4fc',
   })
+
   const appShellRef = useRef<HTMLDivElement>(null)
   const quickMenuRef = useRef<HTMLDivElement>(null)
   const sensors = useSensors(
@@ -510,27 +560,13 @@ function App() {
   )
 
   useEffect(() => {
-    if (localStorage.getItem(SAMPLE_CARDS_KEY) === 'done') return
-
-    const existingUrls = new Set(cards.map((card) => card.url))
-    const migratedCards = cards.map((card) => ({
-      ...card,
-      category: legacyGroupNames[card.category] ?? card.category,
-    }))
-    localStorage.setItem(SAMPLE_CARDS_KEY, 'done')
-    setCards([...migratedCards, ...sampleCards.filter((card) => !existingUrls.has(card.url))])
-  }, [])
-
-  useEffect(() => {
     if (!showQuickMenu) return
-
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!quickMenuRef.current?.contains(event.target as Node)) setShowQuickMenu(false)
     }
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setShowQuickMenu(false)
     }
-
     document.addEventListener('pointerdown', closeOnOutsidePointer)
     document.addEventListener('keydown', closeOnEscape)
     return () => {
@@ -543,142 +579,73 @@ function App() {
     setIntervalDraft(String(wallpaperSettings.interval))
   }, [wallpaperSettings.interval])
 
-  useEffect(() => {
-    let active = true
-
-    async function loadBingWallpaper() {
-      const today = new Date().toISOString().slice(0, 10)
-      const cachedDate = localStorage.getItem('liquid-nav-bing-date')
-      const cachedUrl = localStorage.getItem('liquid-nav-bing-url')
-
-      if (cachedDate === today && cachedUrl) {
-        if (active) setBingWallpaper(cachedUrl)
-        return
-      }
-
-      setIsBingLoading(true)
-      setBingWallpaperError(false)
-      try {
-        const response = await fetch(`/api/bing-wallpaper?format=js&idx=0&n=1&mkt=zh-CN&_=${Date.now()}`, { cache: 'no-store' })
-        if (!response.ok) throw new Error('壁纸请求失败')
-        const data = await response.json()
-        const imageUrl = data?.images?.[0]?.url
-        if (!imageUrl) throw new Error('未获取到每日壁纸')
-        const fullUrl = /^https?:\/\//i.test(imageUrl) ? imageUrl : `https://www.bing.com${imageUrl}`
-
-        if (active) {
-          setBingWallpaper(fullUrl)
-          localStorage.setItem('liquid-nav-bing-date', today)
-          localStorage.setItem('liquid-nav-bing-url', fullUrl)
-        }
-      } catch {
-        if (active) {
-          if (cachedUrl) setBingWallpaper(cachedUrl)
-          setBingWallpaperError(true)
-        }
-      } finally {
-        if (active) setIsBingLoading(false)
-      }
-    }
-
-    loadBingWallpaper()
-
-    return () => {
-      active = false
-    }
-  }, [bingRefreshKey])
-
-  useEffect(() => {
-    if (selectedWallpaperUrls.length <= 1) return
-
-    const intervalMs = wallpaperSettings.interval * 1000
-    let remainingMs = intervalMs
-    let active = true
-    let timer: number
-
-    const scheduleNextRotation = () => {
-      const delay = Math.min(remainingMs, MAX_TIMEOUT_DELAY)
-      timer = window.setTimeout(() => {
-        if (!active) return
-
-        remainingMs -= delay
-        if (remainingMs <= 0) {
-          setCurrentWallpaperIndex((prev) => (prev + 1) % selectedWallpaperUrls.length)
-          remainingMs = intervalMs
-        }
-
-        scheduleNextRotation()
-      }, delay)
-    }
-
-    scheduleNextRotation()
-
-    return () => {
-      active = false
-      window.clearTimeout(timer)
-    }
-  }, [wallpaperSettings.interval, selectedWallpaperUrls.length])
-
-  const filteredCards = useMemo(() => {
-    return cards.filter((card) => {
-      return selectedCategory === '全部' || card.category === selectedCategory
-    })
-  }, [cards, selectedCategory])
-
-  const currentWallpaper = useMemo(() => {
-    if (selectedWallpaperUrls.length > 0) {
-      const idx = currentWallpaperIndex % selectedWallpaperUrls.length
-      return selectedWallpaperUrls[idx] ?? bingWallpaper
-    }
-    return bingWallpaper
-  }, [bingWallpaper, currentWallpaperIndex, selectedWallpaperUrls])
-
-  const [resolvedWallpaper, setResolvedWallpaper] = useState<string>('')
-
-  useEffect(() => {
-    if (!currentWallpaper) {
-      setResolvedWallpaper('')
-      return
-    }
-
-    let active = true
-    async function loadBlobWallpaper() {
-      if (currentWallpaper.startsWith('data:') || currentWallpaper.startsWith('blob:')) {
-        if (active) setResolvedWallpaper(currentWallpaper)
-        return
-      }
-
-      try {
-        const res = await fetch(currentWallpaper, { mode: 'cors' })
-        const blob = await res.blob()
-        const blobUrl = URL.createObjectURL(blob)
-        if (active) {
-          setResolvedWallpaper(blobUrl)
-        }
-      } catch {
-        if (active) setResolvedWallpaper(currentWallpaper)
-      }
-    }
-
-    loadBlobWallpaper()
-
-    return () => {
-      active = false
-    }
-  }, [currentWallpaper])
-
+  // 上传单图标 (保存到 data/icons 文件夹)
   const handleIconFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
     try {
-      const compressedIcon = await compressImage(file, 128, 128, 0.85)
-      setForm((prev) => ({ ...prev, icon: compressedIcon }))
+      const fileUrl = await uploadImageToServer(file, 'icon')
+      setForm((prev) => ({ ...prev, icon: fileUrl }))
     } catch (error) {
       console.error('处理图标失败', error)
       alert('处理图标图片失败，请重试')
     } finally {
       event.target.value = ''
     }
+  }
+
+  // 批量上传图标 (保存到 data/icons 文件夹)
+  const handleBatchUploadIcons = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? [])
+    if (!files.length) return
+
+    try {
+      const uploadedUrls = await Promise.all(
+        files.map((file) => uploadImageToServer(file, 'icon')),
+      )
+      setStoredIcons((prev) => [...prev, ...uploadedUrls])
+    } catch (error) {
+      console.error('批量上传图标失败', error)
+      alert('批量上传图标失败，请重试')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  // 上传本地壁纸 (保存到 data/wallpapers 文件夹)
+  const handleWallpaperFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? [])
+    if (!files.length) return
+
+    try {
+      const uploadedUrls = await Promise.all(
+        files.map((file) => uploadImageToServer(file, 'wallpaper')),
+      )
+      const nextImages = [...localWallpapers, ...uploadedUrls]
+      setLocalWallpapers(nextImages)
+      setSelectedWallpaperUrls(uploadedUrls)
+      setCurrentWallpaperIndex(0)
+    } catch (error) {
+      console.error('处理本地壁纸失败', error)
+      alert('处理本地壁纸失败，请重试')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  const clearLocalWallpapers = () => {
+    setLocalWallpapers([])
+    setSelectedWallpaperUrls([bingWallpaper])
+    setCurrentWallpaperIndex(0)
+  }
+
+  const commitWallpaperInterval = () => {
+    const parsedInterval = Number(intervalDraft)
+    const interval = Number.isFinite(parsedInterval)
+      ? Math.min(MAX_INTERVAL_SECONDS, Math.max(3, Math.round(parsedInterval)))
+      : wallpaperSettings.interval
+    setWallpaperSettings((prev) => ({ ...prev, interval }))
+    setIntervalDraft(String(interval))
   }
 
   const openAddCard = () => {
@@ -796,45 +763,25 @@ function App() {
     if (selectedCategory === name) setSelectedCategory('全部')
   }
 
-  const handleBatchUploadIcons = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? [])
-    if (!files.length) return
-
-    try {
-      const encoded = await Promise.all(
-        files.map((file) => compressImage(file, 128, 128, 0.85)),
-      )
-
-      setStoredIcons((prev) => [...prev, ...encoded])
-    } catch (error) {
-      console.error('批量上传图标失败', error)
-      alert('批量上传图标失败，请重试')
-    } finally {
-      event.target.value = ''
-    }
-  }
-
   const handleDeleteStoredIcon = (index: number) => {
     setStoredIcons((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // 一键拉取所有网站在线图标（跳过用户手动上传的本地图标）
+  // 一键拉取所有网站在线图标
   const handleFetchAllSiteFavicons = () => {
     let updatedCount = 0
     let skippedCount = 0
 
     setCards((prevCards) =>
       prevCards.map((card) => {
-        // 如果卡片已经是用户手动上传的本地图片图标 (Base64 或 blob:)，则避开不覆盖
         const isUserUploaded =
-          /^data:image\//i.test(card.icon) || /^blob:/i.test(card.icon)
+          /^data:image\//i.test(card.icon) || /^blob:/i.test(card.icon) || card.icon.startsWith('/data/')
 
         if (isUserUploaded) {
           skippedCount++
           return card
         }
 
-        // 解析网址并生成网站自有的直连 favicon URL
         let rawUrl = card.url.trim()
         if (!rawUrl) return card
 
@@ -862,81 +809,53 @@ function App() {
     )
   }
 
+  // 手动触发一键同步
   const handleSyncData = async () => {
-    const payload = {
+    const syncPayload = { version: '1.0', syncTime: Date.now(), cards, groups }
+    const configPayload = {
       version: '1.0',
       syncTime: Date.now(),
-      cards,
-      groups,
       normalSettings,
+      pageLayoutSettings,
       wallpaperSettings,
       localWallpapers,
+      storedIcons,
+      selectedWallpaperUrls,
     }
 
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards))
-      localStorage.setItem(GROUPS_KEY, JSON.stringify(groups))
-      localStorage.setItem('liquid-nav-normal-glass', JSON.stringify(normalSettings))
-      localStorage.setItem(WALLPAPER_KEY, JSON.stringify(wallpaperSettings))
-      localStorage.setItem(LOCAL_WALLPAPERS_KEY, JSON.stringify(localWallpapers))
-
-      const res = await fetch('/api/sync', {
+      const resSync = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(syncPayload),
       })
-      if (res.ok) {
-        alert('🌐 跨设备云端同步成功！当前账号下的卡片、分组与配置已实时同步至服务器。')
+      const resConfig = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configPayload),
+      })
+
+      if (resSync.ok && resConfig.ok) {
+        alert('🌐 云端数据与系统设置已同步保存至 /app/data/ (sync.json 与 config.json)！')
       } else {
-        alert('本地已保存，但云端服务器同步失败。')
+        alert('本地已保存，但云端服务器写入失败。')
       }
     } catch {
-      alert('已保存至本地存储。')
+      alert('已保存至本地浏览器存储。')
     }
   }
 
-  const handleWallpaperFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? [])
-    if (!files.length) return
-
-    try {
-      const encoded = await Promise.all(
-        files.map((file) => compressImage(file)),
-      )
-
-      const nextImages = [...localWallpapers, ...encoded]
-      setLocalWallpapers(nextImages)
-      setWallpaperSettings((prev) => ({ ...prev, mode: 'local' }))
-      setCurrentWallpaperIndex(0)
-    } catch (error) {
-      console.error('处理本地壁纸失败', error)
-      alert('处理本地壁纸失败，请重试')
-    } finally {
-      event.target.value = ''
-    }
-  }
-
-  const clearLocalWallpapers = () => {
-    setLocalWallpapers([])
-    setWallpaperSettings((prev) => ({ ...prev, mode: 'bing' }))
-    setCurrentWallpaperIndex(0)
-  }
-
-  const commitWallpaperInterval = () => {
-    const parsedInterval = Number(intervalDraft)
-    const interval = Number.isFinite(parsedInterval)
-      ? Math.min(MAX_INTERVAL_SECONDS, Math.max(3, Math.round(parsedInterval)))
-      : wallpaperSettings.interval
-    setWallpaperSettings((prev) => ({ ...prev, interval }))
-    setIntervalDraft(String(interval))
-  }
+  const filteredCards = useMemo(() => {
+    return cards.filter((card) => {
+      return selectedCategory === '全部' || card.category === selectedCategory
+    })
+  }, [cards, selectedCategory])
 
   if (!isAuthenticated) {
     return (
       <LoginModal
         credentials={credentials}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user)
+        onLoginSuccess={() => {
           setIsAuthenticated(true)
         }}
       />
@@ -1187,10 +1106,7 @@ function App() {
           currentWallpaper={resolvedWallpaper}
           credentials={credentials}
           onCredentialsChange={setCredentials}
-          currentUser={currentUser}
-          ordinaryUsers={ordinaryUsers}
-          onCreateOrdinaryUser={handleCreateOrdinaryUser}
-          onDeleteOrdinaryUser={handleDeleteOrdinaryUser}
+          currentUser={{ username: 'admin', isAdmin: true }}
           onLogout={() => {
             localStorage.removeItem('liquid-nav-auth')
             localStorage.removeItem('liquid-nav-current-user')
@@ -1204,9 +1120,11 @@ function App() {
             if (data.cards) setCards(data.cards)
             if (data.groups) setGroups(data.groups)
             if (data.normalSettings) setNormalSettings(data.normalSettings)
+            if (data.pageLayoutSettings) setPageLayoutSettings(data.pageLayoutSettings)
             if (data.wallpaperSettings) setWallpaperSettings(data.wallpaperSettings)
             if (data.localWallpapers) setLocalWallpapers(data.localWallpapers)
             if (data.storedIcons) setStoredIcons(data.storedIcons)
+            if (data.selectedWallpaperUrls) setSelectedWallpaperUrls(data.selectedWallpaperUrls)
           }}
           onSyncData={handleSyncData}
           onDeleteWallpaper={(index) => setLocalWallpapers((prev) => prev.filter((_, i) => i !== index))}

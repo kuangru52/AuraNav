@@ -10,9 +10,14 @@ const syncPlugin = () => ({
   name: 'sync-api-plugin',
   configureServer(server: any) {
     const dataDir = path.resolve('./data')
-    const usersFilePath = fs.existsSync(dataDir)
-      ? path.join(dataDir, 'users.json')
-      : path.resolve('./users.json')
+    const iconsDir = path.join(dataDir, 'icons')
+    const wallpapersDir = path.join(dataDir, 'wallpapers')
+    const configFile = path.join(dataDir, 'config.json')
+    const syncFile = path.join(dataDir, 'sync.json')
+
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true })
+    if (!fs.existsSync(iconsDir)) fs.mkdirSync(iconsDir, { recursive: true })
+    if (!fs.existsSync(wallpapersDir)) fs.mkdirSync(wallpapersDir, { recursive: true })
 
     const getAdminUser = () => {
       // @ts-ignore
@@ -35,168 +40,79 @@ const syncPlugin = () => ({
     const ADMIN_USER = getAdminUser()
     const ADMIN_PASSWORD = getAdminPassword()
 
-    const getOrdinaryUsers = () => {
-      try {
-        if (fs.existsSync(usersFilePath)) {
-          return JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) || []
-        }
-      } catch {}
-      return []
-    }
-
-    const saveOrdinaryUsers = (users: any) => {
-      try {
-        const dir = path.dirname(usersFilePath)
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-        fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2), 'utf-8')
-      } catch {}
-    }
-
-    const getUserSyncFilePath = (username: string) => {
-      const safeName = (username || 'admin').replace(/[^a-zA-Z0-9_-]/g, '_')
-      if (fs.existsSync(dataDir)) {
-        return path.join(dataDir, `sync-${safeName}.json`)
-      }
-      return path.resolve(`./sync-${safeName}.json`)
+    const DEFAULT_CARDS_DATA = {
+      version: '1.0',
+      groups: ['开发', '娱乐', '阅读'],
+      cards: [
+        {
+          id: '1',
+          title: 'GitHub',
+          url: 'https://github.com',
+          description: '全球最大的开源软件代码托管与协同开发平台',
+          icon: 'https://github.githubassets.com/favicons/favicon.svg',
+          category: '开发',
+          accent: '',
+        },
+        {
+          id: '2',
+          title: '哔哩哔哩 (Bilibili)',
+          url: 'https://www.bilibili.com',
+          description: '国内知名年轻人文化弹幕视频分享与学习社区',
+          icon: 'https://www.bilibili.com/favicon.ico',
+          category: '娱乐',
+          accent: '',
+        },
+        {
+          id: '3',
+          title: '知乎 (Zhihu)',
+          url: 'https://www.zhihu.com',
+          description: '中文互联网高质量问答与知识创作者分享平台',
+          icon: 'https://static.zhihu.com/heifetz/assets/apple-touch-icon-152.abcdef.png',
+          category: '阅读',
+          accent: '',
+        },
+      ],
     }
 
     server.middlewares.use((req: any, res: any, next: any) => {
       const rawUrl = req.url || '/'
       const cleanUrl = rawUrl.split('?')[0]
-      const queryString = rawUrl.includes('?') ? rawUrl.split('?')[1] : ''
-
-      // API: Users Management (/api/users)
-      if (cleanUrl === '/api/users') {
-        if (req.method === 'GET') {
-          const users = getOrdinaryUsers().map((u: any) => ({ username: u.username, role: 'user' }))
-          res.setHeader('Content-Type', 'application/json; charset=utf-8')
-          res.end(JSON.stringify({ adminUser: ADMIN_USER, ordinaryUsers: users }))
-          return
-        }
-
-        if (req.method === 'POST') {
-          let body = ''
-          req.on('data', (chunk: any) => { body += chunk })
-          req.on('end', () => {
-            try {
-              const { username, password } = JSON.parse(body || '{}')
-              if (!username || !password) {
-                res.statusCode = 400
-                res.end(JSON.stringify({ success: false, error: '用户名和密码不能为空' }))
-                return
-              }
-              if (username.trim().toLowerCase() === ADMIN_USER.toLowerCase()) {
-                res.statusCode = 400
-                res.end(JSON.stringify({ success: false, error: '不能使用管理员用户名' }))
-                return
-              }
-              const currentList = getOrdinaryUsers()
-              if (currentList.some((u: any) => u.username.toLowerCase() === username.trim().toLowerCase())) {
-                res.statusCode = 400
-                res.end(JSON.stringify({ success: false, error: '用户已存在' }))
-                return
-              }
-              currentList.push({ username: username.trim(), password: password.trim() })
-              saveOrdinaryUsers(currentList)
-              res.setHeader('Content-Type', 'application/json; charset=utf-8')
-              res.end(JSON.stringify({ success: true, message: '普通用户创建成功' }))
-            } catch (e: any) {
-              res.statusCode = 500
-              res.end(JSON.stringify({ success: false, error: e.message }))
-            }
-          })
-          return
-        }
-
-        if (req.method === 'DELETE') {
-          let body = ''
-          req.on('data', (chunk: any) => { body += chunk })
-          req.on('end', () => {
-            try {
-              const { username } = JSON.parse(body || '{}')
-              if (!username) {
-                res.statusCode = 400
-                res.end(JSON.stringify({ success: false, error: '需要提供要删除的用户名' }))
-                return
-              }
-              let currentList = getOrdinaryUsers()
-              currentList = currentList.filter((u: any) => u.username.toLowerCase() !== username.trim().toLowerCase())
-              saveOrdinaryUsers(currentList)
-
-              const userFile = getUserSyncFilePath(username)
-              if (fs.existsSync(userFile)) {
-                try { fs.unlinkSync(userFile) } catch {}
-              }
-
-              res.setHeader('Content-Type', 'application/json; charset=utf-8')
-              res.end(JSON.stringify({ success: true, message: '用户已删除' }))
-            } catch (e: any) {
-              res.statusCode = 500
-              res.end(JSON.stringify({ success: false, error: e.message }))
-            }
-          })
-          return
-        }
-      }
 
       // API: Login (/api/login)
-      if (cleanUrl === '/api/login') {
-        if (req.method === 'POST') {
-          let body = ''
-          req.on('data', (chunk: any) => { body += chunk })
-          req.on('end', () => {
-            try {
-              const { username, password } = JSON.parse(body || '{}')
-              const inputUser = (username || '').trim()
-              const inputPass = (password || '').trim()
+      if (cleanUrl === '/api/login' && req.method === 'POST') {
+        let body = ''
+        req.on('data', (chunk: any) => { body += chunk })
+        req.on('end', () => {
+          try {
+            const { username, password } = JSON.parse(body || '{}')
+            const inputUser = (username || '').trim()
+            const inputPass = (password || '').trim()
 
-              if (inputUser.toLowerCase() === ADMIN_USER.toLowerCase() && inputPass === ADMIN_PASSWORD) {
-                res.setHeader('Content-Type', 'application/json; charset=utf-8')
-                res.end(JSON.stringify({ success: true, user: { username: ADMIN_USER, isAdmin: true } }))
-                return
-              }
-
-              const ordinary = getOrdinaryUsers()
-              const matched = ordinary.find((u: any) => u.username.toLowerCase() === inputUser.toLowerCase() && u.password === inputPass)
-              if (matched) {
-                res.setHeader('Content-Type', 'application/json; charset=utf-8')
-                res.end(JSON.stringify({ success: true, user: { username: matched.username, isAdmin: false } }))
-                return
-              }
-
+            if (inputUser.toLowerCase() === ADMIN_USER.toLowerCase() && inputPass === ADMIN_PASSWORD) {
+              res.setHeader('Content-Type', 'application/json; charset=utf-8')
+              res.end(JSON.stringify({ success: true, user: { username: ADMIN_USER, isAdmin: true } }))
+            } else {
               res.statusCode = 401
               res.end(JSON.stringify({ success: false, error: '用户名或密码错误' }))
-            } catch (e: any) {
-              res.statusCode = 500
-              res.end(JSON.stringify({ success: false, error: e.message }))
             }
-          })
-          return
-        }
+          } catch (e: any) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ success: false, error: e.message }))
+          }
+        })
+        return
       }
 
-      // API: Sync (/api/sync)
+      // API: Sync Cards (/api/sync)
       if (cleanUrl === '/api/sync') {
-        let userQuery = ADMIN_USER
-        if (queryString) {
-          const match = queryString.match(/username=([^&]+)/)
-          if (match && match[1]) {
-            userQuery = decodeURIComponent(match[1])
-          }
-        }
-
-        const targetFile = getUserSyncFilePath(userQuery)
-
         if (req.method === 'POST') {
           let body = ''
           req.on('data', (chunk: any) => { body += chunk })
           req.on('end', () => {
             try {
-              const targetDir = path.dirname(targetFile)
-              if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true })
-              fs.writeFileSync(targetFile, body, 'utf-8')
+              fs.writeFileSync(syncFile, body, 'utf-8')
               res.setHeader('Content-Type', 'application/json; charset=utf-8')
-              res.end(JSON.stringify({ success: true, message: 'Sync data saved on server' }))
+              res.end(JSON.stringify({ success: true, message: 'sync.json 保存成功' }))
             } catch (e: any) {
               res.statusCode = 500
               res.end(JSON.stringify({ success: false, error: e.message }))
@@ -207,8 +123,45 @@ const syncPlugin = () => ({
 
         if (req.method === 'GET') {
           try {
-            if (fs.existsSync(targetFile)) {
-              const data = fs.readFileSync(targetFile, 'utf-8')
+            if (fs.existsSync(syncFile)) {
+              const data = fs.readFileSync(syncFile, 'utf-8')
+              res.setHeader('Content-Type', 'application/json; charset=utf-8')
+              res.end(data)
+            } else {
+              fs.writeFileSync(syncFile, JSON.stringify(DEFAULT_CARDS_DATA, null, 2), 'utf-8')
+              res.setHeader('Content-Type', 'application/json; charset=utf-8')
+              res.end(JSON.stringify(DEFAULT_CARDS_DATA))
+            }
+          } catch (e: any) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ success: false, error: e.message }))
+          }
+          return
+        }
+      }
+
+      // API: Config Sync (/api/config)
+      if (cleanUrl === '/api/config') {
+        if (req.method === 'POST') {
+          let body = ''
+          req.on('data', (chunk: any) => { body += chunk })
+          req.on('end', () => {
+            try {
+              fs.writeFileSync(configFile, body, 'utf-8')
+              res.setHeader('Content-Type', 'application/json; charset=utf-8')
+              res.end(JSON.stringify({ success: true, message: 'config.json 保存成功' }))
+            } catch (e: any) {
+              res.statusCode = 500
+              res.end(JSON.stringify({ success: false, error: e.message }))
+            }
+          })
+          return
+        }
+
+        if (req.method === 'GET') {
+          try {
+            if (fs.existsSync(configFile)) {
+              const data = fs.readFileSync(configFile, 'utf-8')
               res.setHeader('Content-Type', 'application/json; charset=utf-8')
               res.end(data)
             } else {
@@ -219,6 +172,68 @@ const syncPlugin = () => ({
             res.statusCode = 500
             res.end(JSON.stringify({ success: false, error: e.message }))
           }
+          return
+        }
+      }
+
+      // API: Upload Icon or Wallpaper
+      if (cleanUrl === '/api/upload' && req.method === 'POST') {
+        let body = ''
+        req.on('data', (chunk: any) => { body += chunk })
+        req.on('end', () => {
+          try {
+            const { type, base64 } = JSON.parse(body || '{}')
+            if (!base64) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ success: false, error: '缺少图片数据' }))
+              return
+            }
+            const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+            let ext = '.png'
+            let buffer: any
+            if (matches && matches.length === 3) {
+              if (matches[1] === 'image/jpeg') ext = '.jpg'
+              else if (matches[1] === 'image/webp') ext = '.webp'
+              else if (matches[1] === 'image/gif') ext = '.gif'
+              // @ts-ignore
+              buffer = Buffer.from(matches[2], 'base64')
+            } else {
+              // @ts-ignore
+              buffer = Buffer.from(base64.replace(/^data:image\/\w+;base64,/, ''), 'base64')
+            }
+
+            const targetSubDir = type === 'wallpaper' ? wallpapersDir : iconsDir
+            if (!fs.existsSync(targetSubDir)) fs.mkdirSync(targetSubDir, { recursive: true })
+
+            const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`
+            const targetPath = path.join(targetSubDir, safeName)
+            fs.writeFileSync(targetPath, buffer)
+
+            const relativeUrl = `/data/${type === 'wallpaper' ? 'wallpapers' : 'icons'}/${safeName}`
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify({ success: true, url: relativeUrl }))
+          } catch (e: any) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ success: false, error: e.message }))
+          }
+        })
+        return
+      }
+
+      // Serve /data/ files
+      if (cleanUrl.startsWith('/data/')) {
+        const subPath = cleanUrl.replace(/^\/data\//, '')
+        const targetFilePath = path.join(dataDir, subPath)
+        if (fs.existsSync(targetFilePath) && fs.statSync(targetFilePath).isFile()) {
+          const ext = path.extname(targetFilePath)
+          const cTypes: Record<string, string> = {
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.webp': 'image/webp',
+            '.svg': 'image/svg+xml',
+          }
+          res.setHeader('Content-Type', cTypes[ext] || 'application/octet-stream')
+          res.end(fs.readFileSync(targetFilePath))
           return
         }
       }
