@@ -1132,6 +1132,68 @@ function App() {
           onAdd={addGroup}
         />
 
+        {/* 编辑模式下的手机侧边快速滚动拖拽条 (按住上下滑动即可轻松滚屏，绝不误触卡片拖拽) */}
+        {isEditing && (
+          <div
+            className="mobile-side-scroll-strip"
+            title="按住此处上下拖拽控制页面快速滚动"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              const startY = e.clientY
+              const shell = appShellRef.current || document.documentElement || document.body
+              const startScrollTop = shell.scrollTop || window.scrollY
+
+              const onPointerMove = (moveEvent: PointerEvent) => {
+                const deltaY = moveEvent.clientY - startY
+                const scrollFactor = 3.2
+                if (appShellRef.current) {
+                  appShellRef.current.scrollTop = startScrollTop + deltaY * scrollFactor
+                }
+                window.scrollTo({ top: startScrollTop + deltaY * scrollFactor })
+              }
+
+              const onPointerUp = () => {
+                window.removeEventListener('pointermove', onPointerMove)
+                window.removeEventListener('pointerup', onPointerUp)
+              }
+
+              window.addEventListener('pointermove', onPointerMove)
+              window.addEventListener('pointerup', onPointerUp)
+            }}
+            style={{
+              position: 'fixed',
+              right: '6px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '26px',
+              height: '160px',
+              borderRadius: '14px',
+              background: 'rgba(15, 23, 42, 0.88)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(56, 189, 248, 0.6)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
+              zIndex: 2500,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 0',
+              cursor: 'ns-resize',
+              userSelect: 'none',
+              touchAction: 'none',
+            }}
+          >
+            <span style={{ fontSize: '9px', color: '#38bdf8', fontWeight: 'bold' }}>▲</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+              <div style={{ width: '12px', height: '2px', background: '#38bdf8', borderRadius: '2px' }} />
+              <div style={{ width: '12px', height: '2px', background: '#38bdf8', borderRadius: '2px' }} />
+              <div style={{ width: '12px', height: '2px', background: '#38bdf8', borderRadius: '2px' }} />
+            </div>
+            <span style={{ fontSize: '9px', color: '#38bdf8', fontWeight: 'bold' }}>▼</span>
+          </div>
+        )}
+
         {/* 卡片右键浮动小弹窗 (上边是删除，下边是编辑) */}
         {cardContextMenu && (
           <div
