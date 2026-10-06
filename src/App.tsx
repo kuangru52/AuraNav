@@ -12,6 +12,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { Header } from './components/Header'
 import { LoginModal } from './components/LoginModal'
 import { SearchBar } from './components/SearchBar'
+import { getOnlineWallpapers } from './utils/wallpaperUtils'
 
 const CARDS_STORAGE_KEY = 'liquid-nav-cards'
 const GROUPS_STORAGE_KEY = 'liquid-nav-groups'
@@ -149,15 +150,6 @@ function App() {
       return defaultPageLayoutSettings
     }
   })
-
-  const [wallpaperSelectionMode, setWallpaperSelectionMode] = useState<'single' | 'carousel'>(() => {
-    const saved = localStorage.getItem('auranav-wallpaper-mode')
-    return saved === 'carousel' ? 'carousel' : 'single'
-  })
-
-  useEffect(() => {
-    localStorage.setItem('auranav-wallpaper-mode', wallpaperSelectionMode)
-  }, [wallpaperSelectionMode])
 
   const [wallpaperSettings, setWallpaperSettings] = useState<WallpaperSettings>(() => {
     const saved = localStorage.getItem(WALLPAPER_KEY)
@@ -314,7 +306,6 @@ function App() {
             if (configData.normalSettings) setNormalSettings(configData.normalSettings)
             if (configData.pageLayoutSettings) setPageLayoutSettings(configData.pageLayoutSettings)
             if (configData.wallpaperSettings) setWallpaperSettings(configData.wallpaperSettings)
-            if (configData.wallpaperSelectionMode) setWallpaperSelectionMode(configData.wallpaperSelectionMode)
             if (Array.isArray(configData.localWallpapers)) setLocalWallpapers(configData.localWallpapers)
             if (Array.isArray(configData.storedIcons)) setStoredIcons(configData.storedIcons)
             if (Array.isArray(configData.selectedWallpaperUrls) && configData.selectedWallpaperUrls.length > 0) {
@@ -349,21 +340,37 @@ function App() {
     }
   }
 
-  // 点击选壁纸 (单图固定模式下点击直接独占选中该壁纸；多图轮播模式下多选勾选)
-  const handleToggleSelectWallpaper = (url: string) => {
-    if (wallpaperSelectionMode === 'single') {
-      setSelectedWallpaperUrls([url])
-      setCurrentWallpaperIndex(0)
+  // 选图模式自动判定：仅选中 1 张时为单图模式，选中 2 张及以上时自动升级为轮播模式
+  const wallpaperSelectionMode = selectedWallpaperUrls.length > 1 ? 'carousel' : 'single'
+
+  const handleWallpaperSelectionModeChange = (mode: 'single' | 'carousel') => {
+    if (mode === 'single') {
+      if (selectedWallpaperUrls.length > 1) {
+        setSelectedWallpaperUrls([selectedWallpaperUrls[currentWallpaperIndex % selectedWallpaperUrls.length] || selectedWallpaperUrls[0] || bingWallpaper])
+      }
     } else {
-      setSelectedWallpaperUrls((prev) => {
-        if (prev.includes(url)) {
-          if (prev.length <= 1) return prev
-          return prev.filter((item) => item !== url)
-        } else {
-          return [...prev, url]
-        }
-      })
+      if (selectedWallpaperUrls.length === 1) {
+        const onlineUrls = getOnlineWallpapers(bingWallpaper, bingRefreshKey).map((item) => item.url)
+        const secondWallpaper = onlineUrls.find((u) => u !== selectedWallpaperUrls[0]) || localWallpapers[0] || DEFAULT_FALLBACK_WALLPAPER
+        setSelectedWallpaperUrls([selectedWallpaperUrls[0]!, secondWallpaper])
+      }
     }
+  }
+
+  // 点击选壁纸 (单图模式下点击直接替换当前单图；轮播模式下多选勾选/取消)
+  const handleToggleSelectWallpaper = (url: string) => {
+    setSelectedWallpaperUrls((prev) => {
+      if (prev.includes(url)) {
+        if (prev.length <= 1) return prev
+        return prev.filter((item) => item !== url)
+      } else {
+        if (prev.length === 1 && wallpaperSelectionMode === 'single') {
+          return [url]
+        }
+        return [...prev, url]
+      }
+    })
+    setCurrentWallpaperIndex(0)
   }
 
   // 加载 Bing 每日壁纸
@@ -1242,7 +1249,7 @@ function App() {
           selectedWallpaperUrls={selectedWallpaperUrls}
           onToggleSelectWallpaper={handleToggleSelectWallpaper}
           wallpaperSelectionMode={wallpaperSelectionMode}
-          onWallpaperSelectionModeChange={setWallpaperSelectionMode}
+          onWallpaperSelectionModeChange={handleWallpaperSelectionModeChange}
           normalSettings={normalSettings}
           updateNormalGlass={updateNormalGlass}
           currentWallpaper={resolvedWallpaper}

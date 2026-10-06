@@ -262,14 +262,16 @@ export function SettingsPanel({
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '380px' }}>
           {/* 上半部分：选图模式（单图固定 vs 多图轮播）与 壁纸来源（网络 vs 本地） */}
           <div>
-            {/* 1. 顶层：全局选图模式控制 */}
+            {/* 1. 顶层：全局选图模式控制 (单图 vs 轮播) */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.15)', marginBottom: '14px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>
-                  选图模式：{wallpaperSelectionMode === 'single' ? '📌 单图固定模式（绝不轮播）' : '🔄 多图轮播模式'}
+                  选图模式：{wallpaperSelectionMode === 'single' ? '📌 单图模式' : '🔄 轮播模式'}
                 </span>
                 <span style={{ fontSize: '0.75rem', color: 'rgba(226, 232, 240, 0.65)' }}>
-                  {wallpaperSelectionMode === 'single' ? '点击下方任意一张缩略图，立即固定为单张背景，绝不轮播' : '勾选下方多张壁纸，自动按设定间隔秒数轮播切换'}
+                  {wallpaperSelectionMode === 'single'
+                    ? '已选中 1 张壁纸（点击下方缩略图直接替换；勾选多张自动切为轮播）'
+                    : `已选中 ${selectedWallpaperUrls.length} 张壁纸（按设定秒数循环轮播；取消到只剩 1 张自动切为单图）`}
                 </span>
               </div>
               <div style={{ display: 'flex', background: 'rgba(0,0,0,0.35)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -277,7 +279,7 @@ export function SettingsPanel({
                   type="button"
                   onClick={() => onWallpaperSelectionModeChange('single')}
                   style={{
-                    padding: '5px 12px',
+                    padding: '5px 14px',
                     borderRadius: '8px',
                     border: 0,
                     background: wallpaperSelectionMode === 'single' ? '#38bdf8' : 'transparent',
@@ -288,13 +290,13 @@ export function SettingsPanel({
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  单图固定
+                  单图
                 </button>
                 <button
                   type="button"
                   onClick={() => onWallpaperSelectionModeChange('carousel')}
                   style={{
-                    padding: '5px 12px',
+                    padding: '5px 14px',
                     borderRadius: '8px',
                     border: 0,
                     background: wallpaperSelectionMode === 'carousel' ? '#c084fc' : 'transparent',
@@ -305,7 +307,7 @@ export function SettingsPanel({
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  多图轮播
+                  轮播
                 </button>
               </div>
             </div>
