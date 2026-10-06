@@ -1060,19 +1060,7 @@ function App() {
                 gap: `${pageLayoutSettings.cardGapY}px ${pageLayoutSettings.cardGapX}px`,
               }}
             >
-              <SortableContext items={filteredCards.map((card) => card.id)} strategy={rectSortingStrategy}>
-                {filteredCards.map((card) => (
-                  <SortableGlassCard
-                    key={card.id}
-                    card={card}
-                    normalSettings={normalSettings}
-                    isEditing={isEditing}
-                    onRemove={removeCard}
-                    onEdit={openEditCard}
-                    onContextMenu={handleCardContextMenu}
-                  />
-                ))}
-              </SortableContext>
+              {/* 编辑模式下，加号“添加网站”卡片放到第 1 个位置 */}
               {isEditing && (
                 <div
                   className={'site-tile add-card-tile'}
@@ -1095,6 +1083,20 @@ function App() {
                   </button>
                 </div>
               )}
+
+              <SortableContext items={filteredCards.map((card) => card.id)} strategy={rectSortingStrategy}>
+                {filteredCards.map((card) => (
+                  <SortableGlassCard
+                    key={card.id}
+                    card={card}
+                    normalSettings={normalSettings}
+                    isEditing={isEditing}
+                    onRemove={removeCard}
+                    onEdit={openEditCard}
+                    onContextMenu={handleCardContextMenu}
+                  />
+                ))}
+              </SortableContext>
               {filteredCards.length === 0 && !isEditing && (
                 <div className="empty-state">
                   <h3>这个分组还没有网站</h3>

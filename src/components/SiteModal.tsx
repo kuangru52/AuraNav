@@ -170,9 +170,10 @@ export function SiteModal({
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  minHeight: '1em',
                 }}
               >
-                {form.description.trim() || '实用快捷入口'}
+                {form.description.trim() || ''}
               </p>
             </div>
           </div>
@@ -418,7 +419,7 @@ export function SiteModal({
               onFocus={() => setIsReadOnly(false)}
               value={form.description}
               onChange={(event) => onFormChange((prev) => ({ ...prev, description: event.target.value }))}
-              placeholder="实用快捷入口"
+              placeholder=""
             />
           </label>
         </div>
