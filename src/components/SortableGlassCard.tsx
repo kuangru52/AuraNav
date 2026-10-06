@@ -33,17 +33,19 @@ export function SortableGlassCard({
     return card.accent
   }
 
+  const handleRightClick = (e: React.MouseEvent) => {
+    if (onContextMenu) {
+      e.preventDefault()
+      e.stopPropagation()
+      onContextMenu(e, card)
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       className={isEditing ? 'site-tile editing' : 'site-tile'}
-      onContextMenu={(e) => {
-        if (onContextMenu) {
-          e.preventDefault()
-          e.stopPropagation()
-          onContextMenu(e, card)
-        }
-      }}
+      onContextMenu={handleRightClick}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -65,6 +67,7 @@ export function SortableGlassCard({
         rel="noreferrer"
         className="site-card"
         style={{ touchAction: isEditing ? 'none' : 'auto' }}
+        onContextMenu={handleRightClick}
         onClickCapture={(event) => {
           if (isEditing) {
             event.preventDefault()

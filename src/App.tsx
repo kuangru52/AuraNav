@@ -863,7 +863,13 @@ function App() {
 
   useEffect(() => {
     if (!cardContextMenu) return
-    const closeMenu = () => setCardContextMenu(null)
+    const closeMenu = (e: PointerEvent) => {
+      const menuEl = document.querySelector('.card-context-menu')
+      if (menuEl && menuEl.contains(e.target as Node)) {
+        return
+      }
+      setCardContextMenu(null)
+    }
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setCardContextMenu(null) }
     document.addEventListener('pointerdown', closeMenu)
     document.addEventListener('keydown', handleKey)
@@ -1126,7 +1132,10 @@ function App() {
           >
             <button
               type="button"
-              onClick={() => {
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
                 const cardToDelete = cardContextMenu.card
                 setCardContextMenu(null)
                 if (confirm(`确认删除卡片 "${cardToDelete.title}"？`)) {
@@ -1160,7 +1169,10 @@ function App() {
 
             <button
               type="button"
-              onClick={() => {
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
                 const cardToEdit = cardContextMenu.card
                 setCardContextMenu(null)
                 openEditCard(cardToEdit)
