@@ -60,7 +60,6 @@ export function SettingsPanel({
   commitWallpaperInterval,
   localWallpapers,
   handleWallpaperFiles,
-  clearLocalWallpapers,
   bingRefreshKey = 0,
   onRefreshBing,
   isBingLoading,
@@ -542,15 +541,10 @@ export function SettingsPanel({
                     >
                       + 上传壁纸
                     </label>
-                    {localWallpapers.length > 0 && (
-                      <button type="button" className="mini-button" onClick={clearLocalWallpapers}>
-                        清空
-                      </button>
-                    )}
                   </div>
                 </div>
 
-                {/* 本地壁纸缩略图网格（带绿对号选择功能） */}
+                {/* 本地壁纸缩略图网格（标题与删除按键置于壁纸图片框外部下方） */}
                 {localWallpapers.length === 0 ? (
                   <p style={{ fontSize: '0.85rem', color: 'rgba(226,232,240,0.45)', margin: 0, padding: '16px 0' }}>
                     暂无本地上传壁纸，请点击右上角【+ 上传壁纸】按钮添加。
@@ -564,27 +558,38 @@ export function SettingsPanel({
                           key={idx}
                           onClick={() => onToggleSelectWallpaper(wp)}
                           style={{
-                            position: 'relative',
-                            aspectRatio: '16 / 9',
-                            borderRadius: '10px',
-                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
                             cursor: 'pointer',
-                            border: isSelected ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.18)',
-                            boxShadow: isSelected ? '0 0 12px rgba(34, 197, 94, 0.4)' : 'none',
-                            background: 'rgba(0,0,0,0.3)',
-                            transition: 'all 0.2s ease',
                           }}
                         >
-                          <img src={wp} alt={`wp-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          {isSelected && (
-                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.3)', display: 'grid', placeItems: 'center' }}>
-                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '15px' }}>
-                                ✓
+                          {/* 16:9 壁纸图片框 */}
+                          <div
+                            style={{
+                              position: 'relative',
+                              aspectRatio: '16 / 9',
+                              borderRadius: '12px',
+                              overflow: 'hidden',
+                              border: isSelected ? '2.5px solid #22c55e' : '1px solid rgba(255,255,255,0.18)',
+                              boxShadow: isSelected ? '0 0 14px rgba(34, 197, 94, 0.45)' : '0 4px 12px rgba(0,0,0,0.25)',
+                              background: 'rgba(0,0,0,0.3)',
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
+                            <img src={wp} alt={`wp-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {isSelected && (
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.3)', display: 'grid', placeItems: 'center' }}>
+                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 'bold', fontSize: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                                  ✓
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)', fontSize: '0.72rem', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>本地壁纸 #{idx + 1}</span>
+                            )}
+                          </div>
+
+                          {/* 壁纸框下方外置标题与删除按钮 */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px', fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 500 }}>
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>本地壁纸 #{idx + 1}</span>
                             {onDeleteWallpaper && (
                               <button
                                 type="button"
@@ -597,8 +602,10 @@ export function SettingsPanel({
                                   border: 0,
                                   color: '#ef4444',
                                   cursor: 'pointer',
-                                  fontWeight: 'bold',
-                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  fontSize: '0.72rem',
+                                  padding: 0,
+                                  lineHeight: 1,
                                 }}
                               >
                                 删除
@@ -1716,11 +1723,35 @@ export function SettingsPanel({
       <section className="settings-section" hidden={settingsCategory !== 'backup'}>
         <div style={{ display: 'grid', gap: '14px', width: '100%', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
 
-          {/* 1. 🌐 网站卡片与分组数据 */}
+          {/* 1. 📦 一键全量完整备份与还原 (置顶第一位) */}
+          <div style={{ padding: '16px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(56, 189, 248, 0.25))', border: '1px solid rgba(255, 255, 255, 0.3)', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📦 1. 一键全量完整备份与还原
+              </span>
+              <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '999px', background: '#38bdf8', color: '#0f172a', fontWeight: 800 }}>
+                全量整站包 👑
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.4 }}>
+              同时打包备份【卡片数据 + 系统外观 + 图标库 + 壁纸库】，适合快速克隆/迁移整站。
+            </p>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+              <button type="button" className="action-button primary" onClick={handleDownloadFullZip} style={{ fontSize: '0.82rem', padding: '8px 18px', background: 'linear-gradient(135deg, #a855f7, #6366f1)' }}>
+                👑 导出全量备份 (.zip)
+              </button>
+              <label className="action-button primary" style={{ fontSize: '0.82rem', padding: '8px 18px', cursor: 'pointer', margin: 0, background: 'linear-gradient(135deg, #38bdf8, #0284c7)' }}>
+                ⚡ 一键解压恢复全量 (.zip)
+                <input type="file" accept=".zip" onChange={handleRestoreFullZip} style={{ display: 'none' }} />
+              </label>
+            </div>
+          </div>
+
+          {/* 2. 🌐 网站卡片与分组数据 */}
           <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.12)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                🌐 1. 网站卡片与分组数据
+                🌐 2. 网站卡片与分组数据
               </span>
               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', fontWeight: 600 }}>
                 JSON 结构
@@ -1740,11 +1771,11 @@ export function SettingsPanel({
             </div>
           </div>
 
-          {/* 2. ⚙️ 系统与页面外观配置 */}
+          {/* 3. ⚙️ 系统与页面外观配置 */}
           <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.12)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                ⚙️ 2. 系统与页面外观配置
+                ⚙️ 3. 系统与页面外观配置
               </span>
               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', fontWeight: 600 }}>
                 JSON 配置
@@ -1764,11 +1795,11 @@ export function SettingsPanel({
             </div>
           </div>
 
-          {/* 3. 🎨 自定义 Logo 图标库 */}
+          {/* 4. 🎨 自定义 Logo 图标库 */}
           <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                🎨 3. 自定义 Logo 图标库
+                🎨 4. 自定义 Logo 图标库
               </span>
               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(168, 85, 247, 0.22)', color: '#c084fc', fontWeight: 600 }}>
                 ZIP 压缩包 📦
@@ -1788,11 +1819,11 @@ export function SettingsPanel({
             </div>
           </div>
 
-          {/* 4. 🖼️ 本地高清壁纸库 */}
+          {/* 5. 🖼️ 本地高清壁纸库 */}
           <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                🖼️ 4. 本地高清壁纸库
+                🖼️ 5. 本地高清壁纸库
               </span>
               <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.22)', color: '#38bdf8', fontWeight: 600 }}>
                 ZIP 压缩包 📦
@@ -1808,30 +1839,6 @@ export function SettingsPanel({
               <label className="action-button ghost" style={{ fontSize: '0.8rem', padding: '6px 14px', cursor: 'pointer', margin: 0, color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}>
                 ⬆️ 解压还原壁纸包 (.zip)
                 <input type="file" accept=".zip" onChange={handleRestoreWallpapersZip} style={{ display: 'none' }} />
-              </label>
-            </div>
-          </div>
-
-          {/* 5. 📦 一键全量完整备份与还原 */}
-          <div style={{ padding: '16px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(56, 189, 248, 0.25))', border: '1px solid rgba(255, 255, 255, 0.3)', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                📦 5. 一键全量完整备份与还原
-              </span>
-              <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '999px', background: '#38bdf8', color: '#0f172a', fontWeight: 800 }}>
-                全量整站包 👑
-              </span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.4 }}>
-              同时打包备份【卡片数据 + 系统外观 + 图标库 + 壁纸库】，适合快速克隆/迁移整站。
-            </p>
-            <div style={{ display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
-              <button type="button" className="action-button primary" onClick={handleDownloadFullZip} style={{ fontSize: '0.82rem', padding: '8px 18px', background: 'linear-gradient(135deg, #a855f7, #6366f1)' }}>
-                👑 导出全量备份 (.zip)
-              </button>
-              <label className="action-button primary" style={{ fontSize: '0.82rem', padding: '8px 18px', cursor: 'pointer', margin: 0, background: 'linear-gradient(135deg, #38bdf8, #0284c7)' }}>
-                ⚡ 一键解压恢复全量 (.zip)
-                <input type="file" accept=".zip" onChange={handleRestoreFullZip} style={{ display: 'none' }} />
               </label>
             </div>
           </div>
