@@ -266,28 +266,13 @@ export function SettingsPanel({
       <section className="settings-section" hidden={settingsCategory !== 'wallpaper'} style={{ height: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '380px' }}>
           <div>
-            {/* 顶层切换栏：左侧【单图 / 轮播】，右侧【网络 / 本地】 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              {/* 左侧：单图 / 轮播 */}
-              <div className="mode-switch" style={{ width: '160px' }}>
-                <button
-                  type="button"
-                  className={wallpaperSelectionMode === 'single' ? 'mode-button active' : 'mode-button'}
-                  onClick={() => onWallpaperSelectionModeChange('single')}
-                >
-                  单图
-                </button>
-                <button
-                  type="button"
-                  className={wallpaperSelectionMode === 'carousel' ? 'mode-button active' : 'mode-button'}
-                  onClick={() => onWallpaperSelectionModeChange('carousel')}
-                >
-                  轮播
-                </button>
-              </div>
+            {/* 顶层工具栏：【网络 / 本地】居中，【单图 / 轮播】放在右侧且样式区分 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', position: 'relative' }}>
+              {/* 左侧空占位，保证【网络 / 本地】在正中间 */}
+              <div style={{ width: '140px' }} className="mobile-hide" />
 
-              {/* 右侧：网络 / 本地 */}
-              <div className="mode-switch" style={{ width: '160px' }}>
+              {/* 居中：【网络 / 本地】 (保持原样) */}
+              <div className="mode-switch" style={{ width: '180px' }}>
                 <button
                   type="button"
                   className={wallpaperTab === 'online' ? 'mode-button active' : 'mode-button'}
@@ -301,6 +286,60 @@ export function SettingsPanel({
                   onClick={() => setWallpaperTab('local')}
                 >
                   本地
+                </button>
+              </div>
+
+              {/* 靠右：【单图 / 轮播】 (紫蓝亮彩专属胶囊，与网络/本地明确区分) */}
+              <div
+                className="selection-mode-switch"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  padding: '3px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(192, 132, 252, 0.45)',
+                  boxShadow: '0 4px 16px rgba(168, 85, 247, 0.2)',
+                  width: '140px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => onWallpaperSelectionModeChange('single')}
+                  style={{
+                    flex: 1,
+                    height: '30px',
+                    borderRadius: '999px',
+                    border: 0,
+                    background: wallpaperSelectionMode === 'single' ? 'linear-gradient(135deg, #38bdf8, #0284c7)' : 'transparent',
+                    color: wallpaperSelectionMode === 'single' ? '#ffffff' : 'rgba(226, 232, 240, 0.75)',
+                    fontWeight: 600,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: wallpaperSelectionMode === 'single' ? '0 2px 8px rgba(56, 189, 248, 0.4)' : 'none',
+                  }}
+                >
+                  单图
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onWallpaperSelectionModeChange('carousel')}
+                  style={{
+                    flex: 1,
+                    height: '30px',
+                    borderRadius: '999px',
+                    border: 0,
+                    background: wallpaperSelectionMode === 'carousel' ? 'linear-gradient(135deg, #c084fc, #9333ea)' : 'transparent',
+                    color: wallpaperSelectionMode === 'carousel' ? '#ffffff' : 'rgba(226, 232, 240, 0.75)',
+                    fontWeight: 600,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: wallpaperSelectionMode === 'carousel' ? '0 2px 8px rgba(168, 85, 247, 0.4)' : 'none',
+                  }}
+                >
+                  轮播
                 </button>
               </div>
             </div>
@@ -847,10 +886,21 @@ export function SettingsPanel({
                             const file = e.target.files?.[0]
                             if (!file) return
                             try {
-                              const base64 = await compressImage(file)
-                              onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: base64 }))
-                            } catch {}
-                            e.target.value = ''
+                              const base64 = await compressImage(file, 128, 128, 0.85)
+                              const res = await fetch('/api/upload', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ type: 'icon', base64 }),
+                              })
+                              const data = await res.json()
+                              const logoUrl = res.ok && data.success && data.url ? data.url : base64
+                              onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl }))
+                            } catch {
+                              const fallback = await compressImage(file)
+                              onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: fallback }))
+                            } finally {
+                              e.target.value = ''
+                            }
                           }}
                         />
 
