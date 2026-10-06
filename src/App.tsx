@@ -209,7 +209,16 @@ function App() {
   const [isBingLoading, setIsBingLoading] = useState(false)
   const [bingWallpaperError, setBingWallpaperError] = useState(false)
   const [currentWallpaperIndex, setCurrentWallpaperIndex] = useState(0)
-  const [selectedCategory, setSelectedCategory] = useState<string>('全部')
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    const savedGroups = localStorage.getItem(GROUPS_STORAGE_KEY)
+    if (savedGroups) {
+      try {
+        const parsed = JSON.parse(savedGroups) as string[]
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0]
+      } catch {}
+    }
+    return defaultGroups[0] ?? '开发'
+  })
 
   // 安全写本地缓存
   const safeSaveLocal = (key: string, value: any) => {
@@ -294,7 +303,15 @@ function App() {
           const syncData = await syncRes.json()
           if (syncData && Array.isArray(syncData.cards) && syncData.cards.length > 0) {
             setCards(syncData.cards)
-            if (Array.isArray(syncData.groups)) setGroups(syncData.groups)
+            if (Array.isArray(syncData.groups) && syncData.groups.length > 0) {
+              setGroups(syncData.groups)
+              setSelectedCategory((prev) => {
+                if (prev === '全部' || !syncData.groups.includes(prev)) {
+                  return syncData.groups[0] ?? '开发'
+                }
+                return prev
+              })
+            }
           }
         }
 
