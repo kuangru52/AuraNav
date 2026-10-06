@@ -94,7 +94,10 @@ button {
   width: 100vw;
   height: 100vh;
   height: 100lvh;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.35));
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.08) 0%, transparent 55%),
+    radial-gradient(circle at 90% 90%, rgba(251, 146, 60, 0.06) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.35));
   pointer-events: none;
   z-index: 1;
 }
@@ -106,28 +109,10 @@ button {
   z-index: 2;
 }
 
-.backdrop-orb {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(90px);
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.orb-1 {
-  width: 420px;
-  height: 420px;
-  left: -70px;
-  top: -40px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
+.backdrop-orb,
+.orb-1,
 .orb-2 {
-  width: 480px;
-  height: 480px;
-  right: -80px;
-  bottom: -90px;
-  background: rgba(251, 146, 60, 0.14);
+  display: none !important;
 }
 
 .topbar,
