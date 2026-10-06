@@ -1,6 +1,5 @@
 import React from 'react'
 import type { WallpaperSettings, Credentials, SiteCard, NormalGlassSettings, PageLayoutSettings } from '../types'
-import { exportData, importData } from '../utils/backupUtils'
 import { compressImage } from '../utils/imageUtils'
 import { LogoIcon } from './LogoIcon'
 import { getOnlineWallpapers } from '../utils/wallpaperUtils'
@@ -78,10 +77,7 @@ export function SettingsPanel({
   currentUser = { username: credentials.username || 'admin', isAdmin: true },
   onLogout,
   cards,
-  groups,
   storedIcons,
-  onRestoreData,
-  onSyncData,
   onDeleteWallpaper,
   onResetCardIcon,
   onBatchUploadIcons,
@@ -145,35 +141,93 @@ export function SettingsPanel({
     } catch {}
   }
 
-  const handleExport = () => {
-    const payload = {
-      version: '1.0',
-      exportDate: new Date().toISOString(),
-      cards,
-      groups,
-      normalSettings,
-      wallpaperSettings,
-      localWallpapers,
-    }
-    exportData(payload)
+  // 1. 导出/还原卡片数据 JSON
+  const handleDownloadCards = () => { window.open('/api/backup/cards', '_blank') }
+  const handleRestoreCards = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const res = await fetch('/api/restore/cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: text })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        alert('网站卡片与分组结构成功还原！')
+        window.location.reload()
+      } else alert(`还原失败：${data.error || '数据格式不匹配'}`)
+    } catch { alert('无法读取选中的 JSON 文件') }
+    finally { e.target.value = '' }
   }
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  // 2. 导出/还原系统外观配置 JSON
+  const handleDownloadConfig = () => { window.open('/api/backup/config', '_blank') }
+  const handleRestoreConfig = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
     if (!file) return
-    importData(
-      file,
-      (data) => {
-        if (data && Array.isArray(data.cards)) {
-          onRestoreData(data)
-          alert('卡片与配置数据恢复成功！')
-        } else {
-          alert('无效的备份文件：未找到卡片数据')
-        }
-      },
-      (err) => alert(`恢复失败：${err}`),
-    )
-    event.target.value = ''
+    try {
+      const text = await file.text()
+      const res = await fetch('/api/restore/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: text })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        alert('系统与页面外观配置成功还原！')
+        window.location.reload()
+      } else alert(`还原失败：${data.error || '数据格式不匹配'}`)
+    } catch { alert('无法读取选中的 JSON 文件') }
+    finally { e.target.value = '' }
+  }
+
+  // 3. 导出/还原图标包 (.zip)
+  const handleDownloadIconsZip = () => { window.open('/api/backup/icons', '_blank') }
+  const handleRestoreIconsZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const res = await fetch('/api/restore/icons', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: arrayBuffer })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        alert(`图标库成功解压还原 ${data.count ?? ''} 个图标！`)
+        window.location.reload()
+      } else alert(`图标包还原失败：${data.error || '文件非标准 ZIP'}`)
+    } catch { alert('解压文件失败，请检查是否为有效的 ZIP 格式') }
+    finally { e.target.value = '' }
+  }
+
+  // 4. 导出/还原壁纸包 (.zip)
+  const handleDownloadWallpapersZip = () => { window.open('/api/backup/wallpapers', '_blank') }
+  const handleRestoreWallpapersZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const res = await fetch('/api/restore/wallpapers', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: arrayBuffer })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        alert(`壁纸库成功解压还原 ${data.count ?? ''} 张壁纸！`)
+        window.location.reload()
+      } else alert(`壁纸包还原失败：${data.error || '文件非标准 ZIP'}`)
+    } catch { alert('解压文件失败，请检查是否为有效的 ZIP 格式') }
+    finally { e.target.value = '' }
+  }
+
+  // 5. 导出/还原全量完整备份包 (.zip)
+  const handleDownloadFullZip = () => { window.open('/api/backup/full', '_blank') }
+  const handleRestoreFullZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!confirm('提示：全量恢复将一次性还原卡片数据、外观设置、图标库与壁纸库，确定继续？')) {
+      e.target.value = ''
+      return
+    }
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const res = await fetch('/api/restore/full', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: arrayBuffer })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        alert('全量整站数据与图片文件成功全量还原！')
+        window.location.reload()
+      } else alert(`全量还原失败：${data.error || '文件格式错误'}`)
+    } catch { alert('解压全量包失败') }
+    finally { e.target.value = '' }
   }
 
   return (
@@ -205,7 +259,8 @@ export function SettingsPanel({
           className={settingsCategory === 'wallpaper' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('wallpaper')}
         >
-          壁纸
+          <span>壁</span>
+          <span>纸</span>
         </button>
         <button
           type="button"
@@ -214,7 +269,7 @@ export function SettingsPanel({
           className={settingsCategory === 'glass' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('glass')}
         >
-          卡片风格
+          <span>卡片风格</span>
         </button>
         <button
           type="button"
@@ -223,16 +278,8 @@ export function SettingsPanel({
           className={settingsCategory === 'page' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('page')}
         >
-          页面
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={settingsCategory === 'account'}
-          className={settingsCategory === 'account' ? 'settings-tab active' : 'settings-tab'}
-          onClick={() => onSettingsCategoryChange('account')}
-        >
-          账户安全
+          <span>页</span>
+          <span>面</span>
         </button>
         <button
           type="button"
@@ -241,7 +288,7 @@ export function SettingsPanel({
           className={settingsCategory === 'backup' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('backup')}
         >
-          数据同步
+          <span>数据同步</span>
         </button>
         <button
           type="button"
@@ -250,7 +297,16 @@ export function SettingsPanel({
           className={settingsCategory === 'storage' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('storage')}
         >
-          数据目录
+          <span>数据目录</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={settingsCategory === 'account'}
+          className={settingsCategory === 'account' ? 'settings-tab active' : 'settings-tab'}
+          onClick={() => onSettingsCategoryChange('account')}
+        >
+          <span>账户安全</span>
         </button>
         <button
           type="button"
@@ -259,7 +315,8 @@ export function SettingsPanel({
           className={settingsCategory === 'about' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('about')}
         >
-          关于
+          <span>关</span>
+          <span>于</span>
         </button>
       </div>
 
@@ -557,7 +614,7 @@ export function SettingsPanel({
             )}
           </div>
 
-          {/* 最下部分：左边轮播时间 (仅轮播模式显示) + 右边壁纸模糊度拖动条 */}
+          {/* 最下部分：左边壁纸模糊度拖动条 + 右边轮播时间 (仅轮播模式显示) */}
           <div
             style={{
               display: 'flex',
@@ -568,7 +625,26 @@ export function SettingsPanel({
               paddingTop: '14px',
             }}
           >
-            {/* 左边：仅在轮播模式下才显示轮播时间 */}
+            {/* 左边：壁纸模糊度拖动条 */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '140px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'rgba(226,232,240,0.85)' }}>
+                <span>壁纸模糊度</span>
+                <output style={{ fontSize: '0.8rem', color: '#38bdf8' }}>{wallpaperSettings.blur}px</output>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="18"
+                step="1"
+                value={wallpaperSettings.blur}
+                onChange={(event) =>
+                  onWallpaperSettingsChange((prev) => ({ ...prev, blur: Number(event.target.value) }))
+                }
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+
+            {/* 右边：仅在轮播模式下才显示轮播时间 */}
             {wallpaperSelectionMode === 'carousel' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 <span style={{ fontSize: '0.85rem', color: 'rgba(226,232,240,0.85)', whiteSpace: 'nowrap' }}>轮播时间</span>
@@ -598,25 +674,6 @@ export function SettingsPanel({
                 <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.6)' }}>秒</span>
               </div>
             )}
-
-            {/* 右边：变窄的壁纸模糊度拖动条 */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '140px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'rgba(226,232,240,0.85)' }}>
-                <span>壁纸模糊度</span>
-                <output style={{ fontSize: '0.8rem', color: '#38bdf8' }}>{wallpaperSettings.blur}px</output>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="18"
-                step="1"
-                value={wallpaperSettings.blur}
-                onChange={(event) =>
-                  onWallpaperSettingsChange((prev) => ({ ...prev, blur: Number(event.target.value) }))
-                }
-                style={{ width: '100%', cursor: 'pointer' }}
-              />
-            </div>
           </div>
         </div>
       </section>
@@ -1625,67 +1682,160 @@ export function SettingsPanel({
         </div>
       </section>
 
-      <section className="settings-section" hidden={settingsCategory !== 'account'}>
-        <div className="settings-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
-          <div className="setting-group" style={{ display: 'grid', gap: '16px', padding: '16px 0', border: 0 }}>
-            <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#38bdf8' }}>
-                  当前系统账号：{currentUser.username}
-                </span>
-                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', fontWeight: 600 }}>
-                  系统管理员
-                </span>
-              </div>
-              <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.7)', lineHeight: 1.5, display: 'block' }}>
-                管理员账号的用户名和密码由部署环境变量 (<code style={{ color: '#38bdf8' }}>ADMIN_USER / ADMIN_PASSWORD</code>) 设定。
-              </small>
+      <section className="settings-section" hidden={settingsCategory !== 'account'} style={{ height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '380px' }}>
+          {/* 上部分：系统管理员账号卡片 */}
+          <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#38bdf8' }}>
+                当前系统账号：{currentUser.username}
+              </span>
+              <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', fontWeight: 600 }}>
+                系统管理员
+              </span>
             </div>
+            <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.7)', lineHeight: 1.5, display: 'block' }}>
+              管理员账号的用户名和密码由部署环境变量 (<code style={{ color: '#38bdf8' }}>ADMIN_USER / ADMIN_PASSWORD</code>) 设定。
+            </small>
+          </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px' }}>
-              <button
-                type="button"
-                className="action-button primary"
-                onClick={onLogout}
-                style={{ background: 'rgba(239, 68, 68, 0.85)', color: '#fff', borderColor: 'transparent', padding: '10px 24px', borderRadius: '12px' }}
-              >
-                退出登录
-              </button>
-            </div>
+          {/* 底部分：退出登录按键移动至最下方 */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', marginTop: 'auto' }}>
+            <button
+              type="button"
+              className="action-button primary"
+              onClick={onLogout}
+              style={{ background: 'rgba(239, 68, 68, 0.85)', color: '#fff', borderColor: 'transparent', padding: '10px 24px', borderRadius: '12px' }}
+            >
+              退出登录
+            </button>
           </div>
         </div>
       </section>
 
       <section className="settings-section" hidden={settingsCategory !== 'backup'}>
-        <div className="settings-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
-          <div className="setting-group" style={{ display: 'grid', gap: '16px', padding: '16px 0', border: 0 }}>
-            <div>
-              <span className="setting-label" style={{ display: 'block', marginBottom: '6px' }}>一键数据同步</span>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.65)', margin: '0 0 12px' }}>将当前账号下的所有卡片、分组与个性化设置一键同步并保存至云端与本地存储。</p>
-              <button type="button" className="action-button primary" onClick={onSyncData} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)' }}>
-                🔄 立即一键同步数据
-              </button>
-            </div>
+        <div style={{ display: 'grid', gap: '14px', width: '100%', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>
 
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.12)', paddingTop: '16px', marginTop: '4px' }}>
-              <span className="setting-label" style={{ display: 'block', marginBottom: '6px' }}>导出数据备份</span>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.65)', margin: '0 0 12px' }}>将所有的卡片数据、分组、壁纸及卡片风格配置导出为 JSON 备份文件保存到本地。</p>
-              <button type="button" className="action-button ghost" onClick={handleExport}>
-                导出 JSON 备份
-              </button>
+          {/* 1. 🌐 网站卡片与分组数据 */}
+          <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.12)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🌐 1. 网站卡片与分组数据
+              </span>
+              <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', fontWeight: 600 }}>
+                JSON 结构
+              </span>
             </div>
-
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.12)', paddingTop: '16px', marginTop: '4px' }}>
-              <span className="setting-label" style={{ display: 'block', marginBottom: '6px' }}>从备份恢复数据</span>
-              <p style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.65)', margin: '0 0 12px' }}>选择之前导出的 JSON 备份文件，恢复您的所有卡片与个性化配置。</p>
-              <label className="file-picker" style={{ display: 'inline-flex', cursor: 'pointer' }}>
-                <input type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
-                <span className="action-button ghost" style={{ border: '1px solid rgba(255,255,255,0.22)', padding: '10px 16px', borderRadius: '12px', background: 'rgba(15,23,42,0.34)', color: '#f8fafc' }}>
-                  选择备份文件并恢复
-                </span>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(226,232,240,0.65)' }}>
+              单独导出或还原所有卡片名称、跳转网址、排序与分组目录信息。
+            </p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+              <button type="button" className="action-button ghost" onClick={handleDownloadCards} style={{ fontSize: '0.8rem', padding: '6px 14px' }}>
+                ⬇️ 导出卡片 JSON
+              </button>
+              <label className="action-button ghost" style={{ fontSize: '0.8rem', padding: '6px 14px', cursor: 'pointer', margin: 0 }}>
+                ⬆️ 还原卡片 JSON
+                <input type="file" accept=".json" onChange={handleRestoreCards} style={{ display: 'none' }} />
               </label>
             </div>
           </div>
+
+          {/* 2. ⚙️ 系统与页面外观配置 */}
+          <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.12)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                ⚙️ 2. 系统与页面外观配置
+              </span>
+              <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', fontWeight: 600 }}>
+                JSON 配置
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(226,232,240,0.65)' }}>
+              单独导出或还原毛玻璃参数、页面布局边距、顶部 Logo、时钟与搜索引擎偏好。
+            </p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+              <button type="button" className="action-button ghost" onClick={handleDownloadConfig} style={{ fontSize: '0.8rem', padding: '6px 14px' }}>
+                ⬇️ 导出配置 JSON
+              </button>
+              <label className="action-button ghost" style={{ fontSize: '0.8rem', padding: '6px 14px', cursor: 'pointer', margin: 0 }}>
+                ⬆️ 还原配置 JSON
+                <input type="file" accept=".json" onChange={handleRestoreConfig} style={{ display: 'none' }} />
+              </label>
+            </div>
+          </div>
+
+          {/* 3. 🎨 自定义 Logo 图标库 */}
+          <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(168, 85, 247, 0.3)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🎨 3. 自定义 Logo 图标库
+              </span>
+              <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(168, 85, 247, 0.22)', color: '#c084fc', fontWeight: 600 }}>
+                ZIP 压缩包 📦
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(226,232,240,0.65)' }}>
+              打包下载服务器 `data/icons/` 图标目录，或上传图标 ZIP 包自动解压还原。
+            </p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+              <button type="button" className="action-button ghost" onClick={handleDownloadIconsZip} style={{ fontSize: '0.8rem', padding: '6px 14px', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.4)' }}>
+                📦 导出图标包 (.zip)
+              </button>
+              <label className="action-button ghost" style={{ fontSize: '0.8rem', padding: '6px 14px', cursor: 'pointer', margin: 0, color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.4)' }}>
+                ⬆️ 解压还原图标包 (.zip)
+                <input type="file" accept=".zip" onChange={handleRestoreIconsZip} style={{ display: 'none' }} />
+              </label>
+            </div>
+          </div>
+
+          {/* 4. 🖼️ 本地高清壁纸库 */}
+          <div style={{ padding: '14px 16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🖼️ 4. 本地高清壁纸库
+              </span>
+              <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.22)', color: '#38bdf8', fontWeight: 600 }}>
+                ZIP 压缩包 📦
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(226,232,240,0.65)' }}>
+              打包下载服务器 `data/wallpapers/` 壁纸目录，或上传壁纸 ZIP 包自动解压还原。
+            </p>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+              <button type="button" className="action-button ghost" onClick={handleDownloadWallpapersZip} style={{ fontSize: '0.8rem', padding: '6px 14px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}>
+                📦 导出壁纸包 (.zip)
+              </button>
+              <label className="action-button ghost" style={{ fontSize: '0.8rem', padding: '6px 14px', cursor: 'pointer', margin: 0, color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}>
+                ⬆️ 解压还原壁纸包 (.zip)
+                <input type="file" accept=".zip" onChange={handleRestoreWallpapersZip} style={{ display: 'none' }} />
+              </label>
+            </div>
+          </div>
+
+          {/* 5. 📦 一键全量完整备份与还原 */}
+          <div style={{ padding: '16px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(56, 189, 248, 0.25))', border: '1px solid rgba(255, 255, 255, 0.3)', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📦 5. 一键全量完整备份与还原
+              </span>
+              <span style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '999px', background: '#38bdf8', color: '#0f172a', fontWeight: 800 }}>
+                全量整站包 👑
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.4 }}>
+              同时打包备份【卡片数据 + 系统外观 + 图标库 + 壁纸库】，适合快速克隆/迁移整站。
+            </p>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+              <button type="button" className="action-button primary" onClick={handleDownloadFullZip} style={{ fontSize: '0.82rem', padding: '8px 18px', background: 'linear-gradient(135deg, #a855f7, #6366f1)' }}>
+                👑 导出全量备份 (.zip)
+              </button>
+              <label className="action-button primary" style={{ fontSize: '0.82rem', padding: '8px 18px', cursor: 'pointer', margin: 0, background: 'linear-gradient(135deg, #38bdf8, #0284c7)' }}>
+                ⚡ 一键解压恢复全量 (.zip)
+                <input type="file" accept=".zip" onChange={handleRestoreFullZip} style={{ display: 'none' }} />
+              </label>
+            </div>
+          </div>
+
         </div>
       </section>
 

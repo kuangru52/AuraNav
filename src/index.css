@@ -395,6 +395,10 @@ button {
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
+.settings-tab.two-chars {
+  letter-spacing: 0.9em;
+}
+
 .settings-tab.active {
   border-color: rgba(255, 255, 255, 0.24);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08));

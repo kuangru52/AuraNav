@@ -3,6 +3,7 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createZipBuffer, extractZipBuffer } from './src/utils/serverZip.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 5173;
@@ -164,6 +165,227 @@ const server = http.createServer((req, res) => {
     }).on('error', (e) => {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: e.message }));
+    });
+    return;
+  }
+
+  // 备份与恢复模块 1: 网站卡片 JSON
+  if (cleanUrl === '/api/backup/cards' && req.method === 'GET') {
+    try {
+      const data = fs.existsSync(SYNC_FILE) ? fs.readFileSync(SYNC_FILE, 'utf-8') : JSON.stringify(DEFAULT_CARDS_DATA, null, 2);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="auranav-cards-${dateStr}.json"`,
+      });
+      res.end(data);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (cleanUrl === '/api/restore/cards' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const json = JSON.parse(body || '{}');
+        if (!json || (!Array.isArray(json.cards) && !Array.isArray(json))) {
+          throw new Error('无效的网站卡片数据格式');
+        }
+        fs.writeFileSync(SYNC_FILE, body, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, message: '网站卡片还原成功' }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // 备份与恢复模块 2: 系统配置 JSON
+  if (cleanUrl === '/api/backup/config' && req.method === 'GET') {
+    try {
+      const data = fs.existsSync(CONFIG_FILE) ? fs.readFileSync(CONFIG_FILE, 'utf-8') : '{}';
+      const dateStr = new Date().toISOString().slice(0, 10);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="auranav-config-${dateStr}.json"`,
+      });
+      res.end(data);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (cleanUrl === '/api/restore/config' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        JSON.parse(body || '{}');
+        fs.writeFileSync(CONFIG_FILE, body, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, message: '系统配置还原成功' }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // 备份与恢复模块 3: 图标包 ZIP
+  if (cleanUrl === '/api/backup/icons' && req.method === 'GET') {
+    try {
+      const entries = [];
+      if (fs.existsSync(ICONS_DIR)) {
+        const files = fs.readdirSync(ICONS_DIR);
+        for (const f of files) {
+          const fp = path.join(ICONS_DIR, f);
+          if (fs.statSync(fp).isFile()) {
+            entries.push({ filename: f, data: fs.readFileSync(fp) });
+          }
+        }
+      }
+      const zipBuf = createZipBuffer(entries);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="auranav-icons-${dateStr}.zip"`,
+        'Content-Length': zipBuf.length,
+      });
+      res.end(zipBuf);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (cleanUrl === '/api/restore/icons' && req.method === 'POST') {
+    const chunks = [];
+    req.on('data', chunk => { chunks.push(chunk); });
+    req.on('end', () => {
+      try {
+        const zipBuf = Buffer.concat(chunks);
+        if (!fs.existsSync(ICONS_DIR)) fs.mkdirSync(ICONS_DIR, { recursive: true });
+        const count = extractZipBuffer(zipBuf, ICONS_DIR);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count, message: `成功恢复 ${count} 个图标` }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // 备份与恢复模块 4: 壁纸包 ZIP
+  if (cleanUrl === '/api/backup/wallpapers' && req.method === 'GET') {
+    try {
+      const entries = [];
+      if (fs.existsSync(WALLPAPERS_DIR)) {
+        const files = fs.readdirSync(WALLPAPERS_DIR);
+        for (const f of files) {
+          const fp = path.join(WALLPAPERS_DIR, f);
+          if (fs.statSync(fp).isFile()) {
+            entries.push({ filename: f, data: fs.readFileSync(fp) });
+          }
+        }
+      }
+      const zipBuf = createZipBuffer(entries);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="auranav-wallpapers-${dateStr}.zip"`,
+        'Content-Length': zipBuf.length,
+      });
+      res.end(zipBuf);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (cleanUrl === '/api/restore/wallpapers' && req.method === 'POST') {
+    const chunks = [];
+    req.on('data', chunk => { chunks.push(chunk); });
+    req.on('end', () => {
+      try {
+        const zipBuf = Buffer.concat(chunks);
+        if (!fs.existsSync(WALLPAPERS_DIR)) fs.mkdirSync(WALLPAPERS_DIR, { recursive: true });
+        const count = extractZipBuffer(zipBuf, WALLPAPERS_DIR);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count, message: `成功恢复 ${count} 张壁纸` }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // 备份与恢复模块 5: 全量完整备份 ZIP
+  if (cleanUrl === '/api/backup/full' && req.method === 'GET') {
+    try {
+      const entries = [];
+      if (fs.existsSync(SYNC_FILE)) {
+        entries.push({ filename: 'sync.json', data: fs.readFileSync(SYNC_FILE) });
+      }
+      if (fs.existsSync(CONFIG_FILE)) {
+        entries.push({ filename: 'config.json', data: fs.readFileSync(CONFIG_FILE) });
+      }
+      if (fs.existsSync(ICONS_DIR)) {
+        for (const f of fs.readdirSync(ICONS_DIR)) {
+          const fp = path.join(ICONS_DIR, f);
+          if (fs.statSync(fp).isFile()) {
+            entries.push({ filename: `icons/${f}`, data: fs.readFileSync(fp) });
+          }
+        }
+      }
+      if (fs.existsSync(WALLPAPERS_DIR)) {
+        for (const f of fs.readdirSync(WALLPAPERS_DIR)) {
+          const fp = path.join(WALLPAPERS_DIR, f);
+          if (fs.statSync(fp).isFile()) {
+            entries.push({ filename: `wallpapers/${f}`, data: fs.readFileSync(fp) });
+          }
+        }
+      }
+      const zipBuf = createZipBuffer(entries);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="auranav-full-backup-${dateStr}.zip"`,
+        'Content-Length': zipBuf.length,
+      });
+      res.end(zipBuf);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (cleanUrl === '/api/restore/full' && req.method === 'POST') {
+    const chunks = [];
+    req.on('data', chunk => { chunks.push(chunk); });
+    req.on('end', () => {
+      try {
+        const zipBuf = Buffer.concat(chunks);
+        const count = extractZipBuffer(zipBuf, DATA_DIR);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, count, message: '全量数据还原成功！' }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
     });
     return;
   }
