@@ -51,14 +51,6 @@ export function SortableGlassCard({
         transition,
         zIndex: isDragging ? 30 : 2,
         borderRadius: `${normalSettings.cornerRadius}px`,
-        backgroundColor: getCardBg(),
-        backdropFilter: `blur(${normalSettings.blur}px)`,
-        WebkitBackdropFilter: `blur(${normalSettings.blur}px)`,
-        overflow: 'hidden',
-        contain: 'paint',
-        isolation: 'isolate',
-        WebkitBackfaceVisibility: 'hidden',
-        backfaceVisibility: 'hidden',
         border: card.accent
           ? `1px solid ${card.accent.startsWith('#') ? `${card.accent}80` : card.accent}`
           : `1px solid rgba(255, 255, 255, ${Math.max(0.12, normalSettings.edgeHighlight * 0.5)})`,
@@ -66,6 +58,22 @@ export function SortableGlassCard({
       }}
       data-site-id={card.id}
     >
+      {/* 独立 3D 隔离层：专门承载高斯模糊与背景色，100% 解决 Chromium GPU 在非标准 DPI 下的切片缝隙问题 */}
+      <div
+        className="glass-surface-layer"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 'inherit',
+          backgroundColor: getCardBg(),
+          backdropFilter: normalSettings.blur > 0 ? `blur(${normalSettings.blur}px)` : 'none',
+          WebkitBackdropFilter: normalSettings.blur > 0 ? `blur(${normalSettings.blur}px)` : 'none',
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
       {/* 1. 拖拽专属手柄：在编辑模式下，仅拖拽此手柄才触发卡片排序，避免在手机上滑动页面时误触发拖拽 */}
       {isEditing && (
         <div
