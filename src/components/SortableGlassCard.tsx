@@ -104,7 +104,7 @@ export function SortableGlassCard({
         </div>
       )}
 
-      {/* 3. 卡片主体 (绑定 attributes 与 listeners，允许按住拖动任意位置进行卡片排序) */}
+      {/* 3. 卡片主体 (设置为 touchAction: 'pan-y'，允许手机端上下顺畅划屏滚屏；长按 220ms 触发卡片拖拽) */}
       <a
         href={isEditing ? undefined : card.url}
         target="_blank"
@@ -112,7 +112,7 @@ export function SortableGlassCard({
         className="site-card"
         style={{
           paddingLeft: isEditing ? '22px' : '12px',
-          touchAction: 'none',
+          touchAction: 'pan-y',
         }}
         onContextMenu={handleRightClick}
         onClickCapture={(event) => {
