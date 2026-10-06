@@ -260,9 +260,58 @@ export function SettingsPanel({
 
       <section className="settings-section" hidden={settingsCategory !== 'wallpaper'} style={{ height: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '380px' }}>
-          {/* 上半部分：网络 / 本地 模式切换 */}
+          {/* 上半部分：选图模式（单图固定 vs 多图轮播）与 壁纸来源（网络 vs 本地） */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+            {/* 1. 顶层：全局选图模式控制 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.15)', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>
+                  选图模式：{wallpaperSelectionMode === 'single' ? '📌 单图固定模式（绝不轮播）' : '🔄 多图轮播模式'}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'rgba(226, 232, 240, 0.65)' }}>
+                  {wallpaperSelectionMode === 'single' ? '点击下方任意一张缩略图，立即固定为单张背景，绝不轮播' : '勾选下方多张壁纸，自动按设定间隔秒数轮播切换'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.35)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <button
+                  type="button"
+                  onClick={() => onWallpaperSelectionModeChange('single')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    border: 0,
+                    background: wallpaperSelectionMode === 'single' ? '#38bdf8' : 'transparent',
+                    color: wallpaperSelectionMode === 'single' ? '#0f172a' : 'rgba(255,255,255,0.7)',
+                    fontWeight: 600,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  单图固定
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onWallpaperSelectionModeChange('carousel')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    border: 0,
+                    background: wallpaperSelectionMode === 'carousel' ? '#c084fc' : 'transparent',
+                    color: wallpaperSelectionMode === 'carousel' ? '#fff' : 'rgba(255,255,255,0.7)',
+                    fontWeight: 600,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  多图轮播
+                </button>
+              </div>
+            </div>
+
+            {/* 2. 第二层：壁纸来源切换（网络 vs 本地） */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
               <div className="mode-switch" style={{ width: '220px', margin: '0 auto' }}>
                 <button
                   type="button"
@@ -286,7 +335,7 @@ export function SettingsPanel({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <small style={{ fontSize: '0.75rem', color: 'rgba(226,232,240,0.5)' }}>
-                    选择网络壁纸（勾选可加入轮播列表）
+                    选择网络壁纸
                   </small>
                   <button
                     type="button"
@@ -332,54 +381,6 @@ export function SettingsPanel({
                 {bingWallpaperError && (
                   <small className="helper-text">每日壁纸暂不可用，请检查网络后重试</small>
                 )}
-
-                {/* 模式选择控制条：单图固定 vs 多图轮播 */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.55)', border: '1px solid rgba(255, 255, 255, 0.15)', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc' }}>
-                      选图模式：{wallpaperSelectionMode === 'single' ? '📌 单图固定模式（绝不轮播）' : '🔄 多图轮播模式'}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'rgba(226, 232, 240, 0.65)' }}>
-                      {wallpaperSelectionMode === 'single' ? '点击下方任意一张缩略图，立即固定为单张背景，绝不轮播' : '勾选下方多张壁纸，自动按设定间隔秒数轮播切换'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.35)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)' }}>
-                    <button
-                      type="button"
-                      onClick={() => onWallpaperSelectionModeChange('single')}
-                      style={{
-                        padding: '5px 12px',
-                        borderRadius: '8px',
-                        border: 0,
-                        background: wallpaperSelectionMode === 'single' ? '#38bdf8' : 'transparent',
-                        color: wallpaperSelectionMode === 'single' ? '#0f172a' : 'rgba(255,255,255,0.7)',
-                        fontWeight: 600,
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      单图固定
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onWallpaperSelectionModeChange('carousel')}
-                      style={{
-                        padding: '5px 12px',
-                        borderRadius: '8px',
-                        border: 0,
-                        background: wallpaperSelectionMode === 'carousel' ? '#c084fc' : 'transparent',
-                        color: wallpaperSelectionMode === 'carousel' ? '#fff' : 'rgba(255,255,255,0.7)',
-                        fontWeight: 600,
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      多图轮播
-                    </button>
-                  </div>
-                </div>
 
                 {/* 网络壁纸缩略图网格（从统一集中库 getOnlineWallpapers 读取，与屏幕轮播 100% 同步） */}
                 <div className="wallpaper-grid-scroll">
