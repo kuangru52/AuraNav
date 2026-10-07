@@ -573,9 +573,8 @@ const syncPlugin = () => ({
 export default defineConfig({
   plugins: [react(), tailwindcss(), syncPlugin()],
   server: {
-    host: '127.0.0.1',
-    port: 3000,
-    strictPort: false,
+    host: true,
+    port: 5173,
     proxy: {
       '/api/bing-wallpaper': {
         target: 'https://www.bing.com',
@@ -583,9 +582,5 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/bing-wallpaper/, '/HPImageArchive.aspx'),
       },
     },
-  },
-  preview: {
-    host: '127.0.0.1',
-    port: 4173,
   },
 })
