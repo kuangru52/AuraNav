@@ -764,6 +764,15 @@ const server = http.createServer((req, res) => {
   });
 });
 
+server.on('error', (e) => {
+  if (e.code === 'EACCES' || e.code === 'EADDRINUSE') {
+    console.log(`Port ${PORT} EACCES, binding server to 127.0.0.1:${PORT}...`);
+    server.listen(PORT, '127.0.0.1');
+  } else {
+    console.error('Server Listen Error:', e);
+  }
+});
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`AuraNav Server running at http://localhost:${PORT}/`);
   console.log(`Admin User: ${ADMIN_USER}`);
