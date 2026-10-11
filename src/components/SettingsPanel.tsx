@@ -1749,32 +1749,50 @@ export function SettingsPanel({
 
       <section className="settings-section" hidden={settingsCategory !== 'account'} style={{ height: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '380px' }}>
-          {/* 上部分：系统管理员账号卡片 */}
-          <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#38bdf8' }}>
-                当前系统账号：{currentUser.username}
-              </span>
-              <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', fontWeight: 600 }}>
-                系统管理员
-              </span>
+          {typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id ? (
+            <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#4ade80' }}>
+                  模式：浏览器新标签页插件模式
+                </span>
+                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', fontWeight: 600 }}>
+                  免登录 · 本地存储
+                </span>
+              </div>
+              <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.75)', lineHeight: 1.5, display: 'block' }}>
+                您正运行在 Chrome / Edge / Firefox 扩展新标签页模式下，所有网址卡片与视觉配置将自动持久化保存在当前浏览器中。如需跨设备同步，可使用“数据备份与还原”模块导出导入 JSON / ZIP 备份文件。
+              </small>
             </div>
-            <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.7)', lineHeight: 1.5, display: 'block' }}>
-              管理员账号的用户名和密码由部署环境变量 (<code style={{ color: '#38bdf8' }}>ADMIN_USER / ADMIN_PASSWORD</code>) 设定。
-            </small>
-          </div>
+          ) : (
+            <>
+              {/* 上部分：系统管理员账号卡片 */}
+              <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#38bdf8' }}>
+                    当前系统账号：{currentUser.username}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', fontWeight: 600 }}>
+                    系统管理员
+                  </span>
+                </div>
+                <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.7)', lineHeight: 1.5, display: 'block' }}>
+                  管理员账号的用户名和密码由部署环境变量 (<code style={{ color: '#38bdf8' }}>ADMIN_USER / ADMIN_PASSWORD</code>) 设定。
+                </small>
+              </div>
 
-          {/* 底部分：退出登录按键移动至最下方 */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', marginTop: 'auto' }}>
-            <button
-              type="button"
-              className="action-button primary"
-              onClick={onLogout}
-              style={{ background: 'rgba(239, 68, 68, 0.85)', color: '#fff', borderColor: 'transparent', padding: '10px 24px', borderRadius: '12px' }}
-            >
-              退出登录
-            </button>
-          </div>
+              {/* 底部分：退出登录按键移动至最下方 */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', marginTop: 'auto' }}>
+                <button
+                  type="button"
+                  className="action-button primary"
+                  onClick={onLogout}
+                  style={{ background: 'rgba(239, 68, 68, 0.85)', color: '#fff', borderColor: 'transparent', padding: '10px 24px', borderRadius: '12px' }}
+                >
+                  退出登录
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

@@ -111,6 +111,16 @@ const defaultNormalSettings: NormalGlassSettings = {
   edgeHighlight: 0.2,
 }
 
+const isExtensionEnv = () => {
+  try {
+    return typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id
+  } catch {
+    return false
+  }
+}
+
+const IS_EXTENSION = isExtensionEnv()
+
 function App() {
   // 1. 卡片与分组状态 (存储于 sync.json)
   const [cards, setCards] = useState<SiteCard[]>(() => {
@@ -225,10 +235,14 @@ function App() {
     return defaultGroups[0] ?? '开发'
   })
 
-  // 安全写本地缓存
+  // 安全写本地缓存 (插件模式下同步写 chrome.storage.local)
   const safeSaveLocal = (key: string, value: any) => {
     try {
-      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value))
+      const valStr = typeof value === 'string' ? value : JSON.stringify(value)
+      localStorage.setItem(key, valStr)
+      if (IS_EXTENSION && typeof chrome !== 'undefined' && chrome.storage?.local) {
+        chrome.storage.local.set({ [key]: valStr })
+      }
     } catch {}
   }
 
@@ -586,6 +600,7 @@ function App() {
   const [showQuickMenu, setShowQuickMenu] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState<'wallpaper' | 'glass' | 'page' | 'account' | 'backup' | 'storage' | 'about'>('wallpaper')
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (IS_EXTENSION) return true
     return localStorage.getItem('liquid-nav-auth') === 'true'
   })
 
