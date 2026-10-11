@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
@@ -9,11 +9,12 @@ import { SortableGlassCard } from './components/SortableGlassCard'
 import { SortableGroupPill } from './components/SortableGroupPill'
 import { SiteModal } from './components/SiteModal'
 import { GroupModal } from './components/GroupModal'
-import { SettingsPanel } from './components/SettingsPanel'
 import { Header } from './components/Header'
 import { LoginModal } from './components/LoginModal'
 import { SearchBar } from './components/SearchBar'
 import { getOnlineWallpapers } from './utils/wallpaperUtils'
+
+const SettingsPanel = lazy(() => import('./components/SettingsPanel').then((m) => ({ default: m.SettingsPanel })))
 
 const CARDS_STORAGE_KEY = 'liquid-nav-cards'
 const GROUPS_STORAGE_KEY = 'liquid-nav-groups'
@@ -98,6 +99,9 @@ const defaultPageLayoutSettings: PageLayoutSettings = {
 
   showSearchBar: true,
   defaultSearchEngine: 'baidu',
+  searchBarBlur: 20,
+  searchBarOpacity: 0.45,
+  searchBarEdgeHighlight: 0.28,
 }
 
 const defaultNormalSettings: NormalGlassSettings = {
@@ -252,20 +256,22 @@ function App() {
     }
   }, [])
 
-  // 监听状态改变并同步写本地及服务端
+  // 监听状态改变并同步写本地及服务端 (使用 200ms 防抖避免拖拽 slider 时高频写磁盘)
   useEffect(() => {
-    safeSaveLocal(CARDS_STORAGE_KEY, cards)
-    safeSaveLocal(GROUPS_STORAGE_KEY, groups)
-    safeSaveLocal('liquid-nav-normal-glass', normalSettings)
-    safeSaveLocal('auranav-page-layout', pageLayoutSettings)
-    safeSaveLocal(WALLPAPER_KEY, wallpaperSettings)
-    safeSaveLocal(LOCAL_WALLPAPERS_KEY, localWallpapers)
-    safeSaveLocal(STORED_ICONS_KEY, storedIcons)
-    safeSaveLocal(SELECTED_WALLPAPERS_KEY, selectedWallpaperUrls)
+    const timer = setTimeout(() => {
+      safeSaveLocal(CARDS_STORAGE_KEY, cards)
+      safeSaveLocal(GROUPS_STORAGE_KEY, groups)
+      safeSaveLocal('liquid-nav-normal-glass', normalSettings)
+      safeSaveLocal('auranav-page-layout', pageLayoutSettings)
+      safeSaveLocal(WALLPAPER_KEY, wallpaperSettings)
+      safeSaveLocal(LOCAL_WALLPAPERS_KEY, localWallpapers)
+      safeSaveLocal(STORED_ICONS_KEY, storedIcons)
+      safeSaveLocal(SELECTED_WALLPAPERS_KEY, selectedWallpaperUrls)
+    }, 200)
 
     if (isInitialLoad.current) {
       isInitialLoad.current = false
-      return
+      return () => clearTimeout(timer)
     }
 
     lastLocalMutationTime.current = Date.now()
@@ -290,6 +296,8 @@ function App() {
     }
 
     autoSyncToServer(syncPayload, configPayload)
+
+    return () => clearTimeout(timer)
   }, [cards, groups, normalSettings, pageLayoutSettings, wallpaperSettings, localWallpapers, storedIcons, selectedWallpaperUrls, autoSyncToServer])
 
   // 从服务端初始化及轮询加载 sync.json 和 config.json
@@ -540,20 +548,32 @@ function App() {
     setCurrentPaletteIndex(nextIndex)
     const palette = colorPalettes[nextIndex]
 
-    setCards((prevCards) =>
-      prevCards.map((card, idx) => ({
-        ...card,
-        accent: palette.colors[idx % palette.colors.length],
-      })),
-    )
+    setCards((prevCards) => {
+      let groupCardIndex = 0
+      return prevCards.map((card) => {
+        const isInCurrentGroup = selectedCategory === '全部' || card.category === selectedCategory
+        if (!isInCurrentGroup) return card
+
+        const newCard = {
+          ...card,
+          accent: palette.colors[groupCardIndex % palette.colors.length],
+        }
+        groupCardIndex++
+        return newCard
+      })
+    })
   }
 
   const handleClearAllCardColors = () => {
     setCards((prevCards) =>
-      prevCards.map((card) => ({
-        ...card,
-        accent: '',
-      })),
+      prevCards.map((card) => {
+        const isInCurrentGroup = selectedCategory === '全部' || card.category === selectedCategory
+        if (!isInCurrentGroup) return card
+        return {
+          ...card,
+          accent: '',
+        }
+      }),
     )
   }
 
@@ -702,7 +722,7 @@ function App() {
     setShowForm(true)
   }
 
-  const openEditCard = (card: SiteCard) => {
+  const openEditCard = useCallback((card: SiteCard) => {
     setEditingCardId(card.id)
     setForm({
       title: card.title,
@@ -713,7 +733,7 @@ function App() {
       accent: card.accent,
     })
     setShowForm(true)
-  }
+  }, [])
 
   const saveCard = () => {
     const title = form.title.trim()
@@ -764,9 +784,9 @@ function App() {
     setShowForm(false)
   }
 
-  const removeCard = (id: string) => {
+  const removeCard = useCallback((id: string) => {
     setCards((prev) => prev.filter((card) => card.id !== id))
-  }
+  }, [])
 
   const reorderCards = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return
@@ -821,13 +841,16 @@ function App() {
     setStoredIcons((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // 一键拉取所有网站在线图标
+  // 一键拉取当前分组/全部网站在线图标
   const handleFetchAllSiteFavicons = () => {
     let updatedCount = 0
     let skippedCount = 0
 
     setCards((prevCards) =>
       prevCards.map((card) => {
+        const isInCurrentGroup = selectedCategory === '全部' || card.category === selectedCategory
+        if (!isInCurrentGroup) return card
+
         const isUserUploaded =
           /^data:image\//i.test(card.icon) || /^blob:/i.test(card.icon) || card.icon.startsWith('/data/')
 
@@ -857,8 +880,9 @@ function App() {
       })
     )
 
+    const groupScopeName = selectedCategory === '全部' ? '所有分组' : `【${selectedCategory}】分组`
     alert(
-      `✅ 已完成所有图标更新！\n成功拉取了 ${updatedCount} 个网站的在线图标` +
+      `✅ 已完成 ${groupScopeName} 的图标更新！\n成功拉取了 ${updatedCount} 个网站的在线图标` +
         (skippedCount > 0 ? `，已自动跳过 ${skippedCount} 个您手动上传的图标。` : '。')
     )
   }
@@ -1029,7 +1053,12 @@ function App() {
 
                 {/* 分类栏居中搜索框 (手机端自动隐藏) */}
                 {pageLayoutSettings.showSearchBar && (
-                  <SearchBar defaultEngineId={pageLayoutSettings.defaultSearchEngine} />
+                  <SearchBar
+                    defaultEngineId={pageLayoutSettings.defaultSearchEngine}
+                    blur={pageLayoutSettings.searchBarBlur}
+                    opacity={pageLayoutSettings.searchBarOpacity}
+                    edgeHighlight={pageLayoutSettings.searchBarEdgeHighlight}
+                  />
                 )}
               </div>
             </DndContext>
@@ -1062,27 +1091,27 @@ function App() {
                   className="category-add-button"
                   onClick={handleFetchAllSiteFavicons}
                   style={{ background: 'rgba(34, 197, 94, 0.18)', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#4ade80' }}
-                  title="自动批量拉取所有未设置图标网站的官方图标，避开您手动上传的图标"
+                  title={`自动批量拉取 ${selectedCategory === '全部' ? '所有分组' : `【${selectedCategory}】分组`} 未设置图标网站的官方图标`}
                 >
-                  🌐 一键获取所有网站图标
+                  🌐 一键获取图标 ({selectedCategory})
                 </button>
                 <button
                   type="button"
                   className="category-add-button"
                   onClick={handleApplyColorPalette}
                   style={{ background: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(168, 85, 247, 0.5)', color: '#c084fc', fontWeight: 600 }}
-                  title="点击切换卡片配色方案（马卡龙、莫兰蒂、赛博、北欧等），点一次换一种"
+                  title={`点击切换 ${selectedCategory === '全部' ? '所有分组' : `【${selectedCategory}】分组`} 卡片配色方案（马卡龙、莫兰蒂等）`}
                 >
-                  🎨 一键配色 ({colorPalettes[currentPaletteIndex].name})
+                  🎨 一键配色 ({colorPalettes[currentPaletteIndex].name} - {selectedCategory})
                 </button>
                 <button
                   type="button"
                   className="category-add-button"
                   onClick={handleClearAllCardColors}
                   style={{ background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.3)', color: '#e2e8f0', fontWeight: 600 }}
-                  title="一键清除所有卡片自定义背景颜色，恢复为统一原版毛玻璃透明风格"
+                  title={`一键清除 ${selectedCategory === '全部' ? '所有分组' : `【${selectedCategory}】分组`} 卡片自定义配色，恢复透亮风格`}
                 >
-                  💧 一键透明
+                  💧 一键透明 ({selectedCategory})
                 </button>
               </div>
             )}
@@ -1336,65 +1365,67 @@ function App() {
           </div>
         )}
 
-      {createPortal(
-        <SettingsPanel
-          showSettings={showSettings}
-          settingsCategory={settingsCategory}
-          onSettingsCategoryChange={setSettingsCategory}
-          onClose={() => setShowSettings(false)}
-          pageLayoutSettings={pageLayoutSettings}
-          onPageLayoutSettingsChange={setPageLayoutSettings}
-          wallpaperSettings={wallpaperSettings}
-          onWallpaperSettingsChange={setWallpaperSettings}
-          intervalDraft={intervalDraft}
-          onIntervalDraftChange={setIntervalDraft}
-          commitWallpaperInterval={commitWallpaperInterval}
-          localWallpapers={localWallpapers}
-          handleWallpaperFiles={handleWallpaperFiles}
-          clearLocalWallpapers={clearLocalWallpapers}
-          bingRefreshKey={bingRefreshKey}
-          onRefreshBing={() => setBingRefreshKey((prev) => prev + 1)}
-          isBingLoading={isBingLoading}
-          bingWallpaperError={bingWallpaperError}
-          bingWallpaper={bingWallpaper}
-          selectedWallpaperUrls={selectedWallpaperUrls}
-          onToggleSelectWallpaper={handleToggleSelectWallpaper}
-          wallpaperSelectionMode={wallpaperSelectionMode}
-          onWallpaperSelectionModeChange={handleWallpaperSelectionModeChange}
-          normalSettings={normalSettings}
-          updateNormalGlass={updateNormalGlass}
-          currentWallpaper={resolvedWallpaper}
-          credentials={credentials}
-          currentUser={{ username: 'admin', isAdmin: true }}
-          onLogout={() => {
-            localStorage.removeItem('liquid-nav-auth')
-            localStorage.removeItem('liquid-nav-current-user')
-            setIsAuthenticated(false)
-            setShowSettings(false)
-          }}
-          cards={cards}
-          groups={groups}
-          storedIcons={storedIcons}
-          onRestoreData={(data) => {
-            if (data.cards) setCards(data.cards)
-            if (data.groups) setGroups(data.groups)
-            if (data.normalSettings) setNormalSettings(data.normalSettings)
-            if (data.pageLayoutSettings) setPageLayoutSettings(data.pageLayoutSettings)
-            if (data.wallpaperSettings) setWallpaperSettings(data.wallpaperSettings)
-            if (data.localWallpapers) setLocalWallpapers(data.localWallpapers)
-            if (data.storedIcons) setStoredIcons(data.storedIcons)
-            if (data.selectedWallpaperUrls) setSelectedWallpaperUrls(data.selectedWallpaperUrls)
-          }}
-          onSyncData={handleSyncData}
-          onDeleteWallpaper={(index) => setLocalWallpapers((prev) => prev.filter((_, i) => i !== index))}
-          onResetCardIcon={(cardId) =>
-            setCards((prev) =>
-              prev.map((c) => (c.id === cardId ? { ...c, icon: c.title.slice(0, 2) } : c))
-            )
-          }
-          onBatchUploadIcons={handleBatchUploadIcons}
-          onDeleteStoredIcon={handleDeleteStoredIcon}
-        />,
+      {showSettings && createPortal(
+        <Suspense fallback={null}>
+          <SettingsPanel
+            showSettings={showSettings}
+            settingsCategory={settingsCategory}
+            onSettingsCategoryChange={setSettingsCategory}
+            onClose={() => setShowSettings(false)}
+            pageLayoutSettings={pageLayoutSettings}
+            onPageLayoutSettingsChange={setPageLayoutSettings}
+            wallpaperSettings={wallpaperSettings}
+            onWallpaperSettingsChange={setWallpaperSettings}
+            intervalDraft={intervalDraft}
+            onIntervalDraftChange={setIntervalDraft}
+            commitWallpaperInterval={commitWallpaperInterval}
+            localWallpapers={localWallpapers}
+            handleWallpaperFiles={handleWallpaperFiles}
+            clearLocalWallpapers={clearLocalWallpapers}
+            bingRefreshKey={bingRefreshKey}
+            onRefreshBing={() => setBingRefreshKey((prev) => prev + 1)}
+            isBingLoading={isBingLoading}
+            bingWallpaperError={bingWallpaperError}
+            bingWallpaper={bingWallpaper}
+            selectedWallpaperUrls={selectedWallpaperUrls}
+            onToggleSelectWallpaper={handleToggleSelectWallpaper}
+            wallpaperSelectionMode={wallpaperSelectionMode}
+            onWallpaperSelectionModeChange={handleWallpaperSelectionModeChange}
+            normalSettings={normalSettings}
+            updateNormalGlass={updateNormalGlass}
+            currentWallpaper={resolvedWallpaper}
+            credentials={credentials}
+            currentUser={{ username: 'admin', isAdmin: true }}
+            onLogout={() => {
+              localStorage.removeItem('liquid-nav-auth')
+              localStorage.removeItem('liquid-nav-current-user')
+              setIsAuthenticated(false)
+              setShowSettings(false)
+            }}
+            cards={cards}
+            groups={groups}
+            storedIcons={storedIcons}
+            onRestoreData={(data) => {
+              if (data.cards) setCards(data.cards)
+              if (data.groups) setGroups(data.groups)
+              if (data.normalSettings) setNormalSettings(data.normalSettings)
+              if (data.pageLayoutSettings) setPageLayoutSettings(data.pageLayoutSettings)
+              if (data.wallpaperSettings) setWallpaperSettings(data.wallpaperSettings)
+              if (data.localWallpapers) setLocalWallpapers(data.localWallpapers)
+              if (data.storedIcons) setStoredIcons(data.storedIcons)
+              if (data.selectedWallpaperUrls) setSelectedWallpaperUrls(data.selectedWallpaperUrls)
+            }}
+            onSyncData={handleSyncData}
+            onDeleteWallpaper={(index) => setLocalWallpapers((prev) => prev.filter((_, i) => i !== index))}
+            onResetCardIcon={(cardId) =>
+              setCards((prev) =>
+                prev.map((c) => (c.id === cardId ? { ...c, icon: c.title.slice(0, 2) } : c))
+              )
+            }
+            onBatchUploadIcons={handleBatchUploadIcons}
+            onDeleteStoredIcon={handleDeleteStoredIcon}
+          />
+        </Suspense>,
         document.body,
       )}
       </DndContext>

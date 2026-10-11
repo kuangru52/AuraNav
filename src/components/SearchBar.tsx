@@ -17,9 +17,17 @@ export const SEARCH_ENGINES: SearchEngine[] = [
 
 type SearchBarProps = {
   defaultEngineId?: string
+  blur?: number
+  opacity?: number
+  edgeHighlight?: number
 }
 
-export function SearchBar({ defaultEngineId = 'baidu' }: SearchBarProps) {
+export function SearchBar({
+  defaultEngineId = 'baidu',
+  blur = 20,
+  opacity = 0.45,
+  edgeHighlight = 0.28,
+}: SearchBarProps) {
   const [selectedEngineId, setSelectedEngineId] = useState(defaultEngineId)
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -33,8 +41,16 @@ export function SearchBar({ defaultEngineId = 'baidu' }: SearchBarProps) {
     window.open(targetUrl, '_blank')
   }
 
+  const customStyle: React.CSSProperties = {
+    backdropFilter: blur > 0 ? `blur(${blur}px) saturate(160%)` : 'none',
+    WebkitBackdropFilter: blur > 0 ? `blur(${blur}px) saturate(160%)` : 'none',
+    background: `rgba(15, 23, 42, ${opacity})`,
+    border: `1px solid rgba(255, 255, 255, ${edgeHighlight})`,
+    boxShadow: `inset 0 1px 0 rgba(255, 255, 255, ${Math.min(1, edgeHighlight * 0.7)}), 0 8px 24px rgba(15, 23, 42, ${Math.min(0.5, opacity * 0.5)})`,
+  }
+
   return (
-    <div className="search-bar-wrap">
+    <div className="search-bar-wrap" style={customStyle}>
       <div className="search-engine-selector">
         <button
           type="button"

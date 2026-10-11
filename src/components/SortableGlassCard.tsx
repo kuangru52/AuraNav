@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { SiteCard, NormalGlassSettings } from '../types'
@@ -12,7 +12,7 @@ type SortableGlassCardProps = {
   onContextMenu?: (event: React.MouseEvent, card: SiteCard) => void
 }
 
-export function SortableGlassCard({
+export const SortableGlassCard = React.memo(function SortableGlassCard({
   card,
   normalSettings,
   isEditing,
@@ -21,6 +21,7 @@ export function SortableGlassCard({
   onContextMenu,
 }: SortableGlassCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, disabled: !isEditing })
+  const [imgError, setImgError] = useState(false)
 
   const getCardBg = () => {
     if (!card.accent) {
@@ -41,6 +42,8 @@ export function SortableGlassCard({
     }
   }
 
+  const isImageUrl = !imgError && (/^https?:\/\//i.test(card.icon) || /^data:image\//i.test(card.icon) || /^blob:/i.test(card.icon) || card.icon.startsWith('/data/'))
+
   return (
     <div
       ref={setNodeRef}
@@ -58,7 +61,7 @@ export function SortableGlassCard({
       }}
       data-site-id={card.id}
     >
-      {/* 1. 独立 3D 隔离层：专门承载高斯模糊与背景色，100% 解决 Chromium GPU 在非标准 DPI 下的切片缝隙问题 */}
+      {/* 1. 独立 3D 隔离层：专门承载高斯模糊与背景色 */}
       <div
         className="glass-surface-layer"
         style={{
@@ -99,12 +102,12 @@ export function SortableGlassCard({
             <circle cx="3" cy="9" r="1.5" />
             <circle cx="9" cy="9" r="1.5" />
             <circle cx="3" cy="15" r="1.5" />
-            <circle cx="9" cy="15" r="1.5" />
+            <circle cx="9" cy="9" r="1.5" />
           </svg>
         </div>
       )}
 
-      {/* 3. 卡片主体 (设置为 touchAction: 'pan-y'，允许手机端上下顺畅划屏滚屏；长按 220ms 触发卡片拖拽) */}
+      {/* 3. 卡片主体 */}
       <a
         href={isEditing ? undefined : card.url}
         target="_blank"
@@ -129,8 +132,14 @@ export function SortableGlassCard({
         {...(isEditing ? listeners : {})}
       >
         <div className="site-icon" style={{ color: '#38bdf8' }}>
-          {/^https?:\/\//i.test(card.icon) || /^data:image\//i.test(card.icon) || /^blob:/i.test(card.icon) || card.icon.startsWith('/data/') ? (
-            <img src={card.icon} alt={card.title} />
+          {isImageUrl ? (
+            <img
+              src={card.icon}
+              alt={card.title}
+              loading="lazy"
+              decoding="async"
+              onError={() => setImgError(true)}
+            />
           ) : (
             card.icon || card.title.slice(0, 2)
           )}
@@ -141,7 +150,7 @@ export function SortableGlassCard({
         </div>
       </a>
 
-      {/* 4. 红“×”删除按钮 */}
+      {/* 4. 删除按钮 */}
       {isEditing && (
         <button type="button" className="delete-button" onClick={() => onRemove(card.id)} aria-label={`删除 ${card.title}`}>
           ×
@@ -149,4 +158,4 @@ export function SortableGlassCard({
       )}
     </div>
   )
-}
+})

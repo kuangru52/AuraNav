@@ -1,7 +1,63 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { LogoIcon } from './LogoIcon'
 import type { PageLayoutSettings } from '../types'
 import { getFormattedDateStrings } from '../utils/timeUtils'
+
+type ClockWidgetProps = {
+  showClock: boolean
+  clockFontSize: number
+  clockColor: string
+  showDate: boolean
+  dateFontSize: number
+  dateColor: string
+}
+
+const ClockWidget = React.memo(function ClockWidget({
+  showClock,
+  clockFontSize,
+  clockColor,
+  showDate,
+  dateFontSize,
+  dateColor,
+}: ClockWidgetProps) {
+  const [timeData, setTimeData] = useState(() => getFormattedDateStrings())
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeData(getFormattedDateStrings())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  if (!showClock && !showDate) return null
+
+  return (
+    <div className="topbar-time-wrap">
+      {showClock && (
+        <div
+          className="topbar-clock"
+          style={{
+            fontSize: `${clockFontSize}px`,
+            color: clockColor,
+          }}
+        >
+          {timeData.clockStr}
+        </div>
+      )}
+      {showDate && (
+        <div
+          className="topbar-date"
+          style={{
+            fontSize: `${dateFontSize}px`,
+            color: dateColor,
+          }}
+        >
+          {timeData.dateStr}
+        </div>
+      )}
+    </div>
+  )
+})
 
 type HeaderProps = {
   isEditing: boolean
@@ -14,7 +70,7 @@ type HeaderProps = {
   pageLayoutSettings?: PageLayoutSettings
 }
 
-export function Header({
+export const Header = React.memo(function Header({
   isEditing,
   onToggleEditing,
   onOpenSettings,
@@ -43,15 +99,6 @@ export function Header({
   const dateFontSize = pageLayoutSettings?.dateFontSize ?? 12
   const dateColor = pageLayoutSettings?.dateColor ?? 'rgba(226, 232, 240, 0.75)'
 
-  const [timeData, setTimeData] = React.useState(() => getFormattedDateStrings())
-
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeData(getFormattedDateStrings())
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
-
   return (
     <header className="topbar" style={style}>
       <div className="brand-wrap">
@@ -68,6 +115,8 @@ export function Header({
               <img
                 src={logoUrl}
                 alt="logo"
+                loading="lazy"
+                decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}
               />
             ) : (
@@ -103,33 +152,15 @@ export function Header({
         )}
       </div>
 
-      {/* 顶栏中间：时钟与日期显示（手机端隐去） */}
-      {(showClock || showDate) && (
-        <div className="topbar-time-wrap">
-          {showClock && (
-            <div
-              className="topbar-clock"
-              style={{
-                fontSize: `${clockFontSize}px`,
-                color: clockColor,
-              }}
-            >
-              {timeData.clockStr}
-            </div>
-          )}
-          {showDate && (
-            <div
-              className="topbar-date"
-              style={{
-                fontSize: `${dateFontSize}px`,
-                color: dateColor,
-              }}
-            >
-              {timeData.dateStr}
-            </div>
-          )}
-        </div>
-      )}
+      {/* 顶栏中间：独立隔离的时钟与日期组件 */}
+      <ClockWidget
+        showClock={showClock}
+        clockFontSize={clockFontSize}
+        clockColor={clockColor}
+        showDate={showDate}
+        dateFontSize={dateFontSize}
+        dateColor={dateColor}
+      />
 
       <div className="toolbar">
         {isEditing && (
@@ -186,4 +217,4 @@ export function Header({
       </div>
     </header>
   )
-}
+})

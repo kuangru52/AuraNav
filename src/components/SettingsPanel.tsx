@@ -1549,6 +1549,64 @@ export function SettingsPanel({
                     </label>
                   )}
                 </div>
+
+                {pageLayoutSettings.showSearchBar && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div className="setting-group" style={{ marginBottom: 0 }}>
+                      <label htmlFor="searchbar-blur" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                        <span>背景高斯模糊</span>
+                        <output style={{ color: '#38bdf8' }}>{pageLayoutSettings.searchBarBlur ?? 20}px</output>
+                      </label>
+                      <input
+                        id="searchbar-blur"
+                        type="range"
+                        min={0}
+                        max={40}
+                        step={1}
+                        value={pageLayoutSettings.searchBarBlur ?? 20}
+                        onChange={(e) =>
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarBlur: Number(e.target.value) }))
+                        }
+                      />
+                    </div>
+
+                    <div className="setting-group" style={{ marginBottom: 0 }}>
+                      <label htmlFor="searchbar-opacity" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                        <span>玻璃不透明度</span>
+                        <output style={{ color: '#38bdf8' }}>{(pageLayoutSettings.searchBarOpacity ?? 0.45).toFixed(2)}</output>
+                      </label>
+                      <input
+                        id="searchbar-opacity"
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={pageLayoutSettings.searchBarOpacity ?? 0.45}
+                        onChange={(e) =>
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarOpacity: Number(e.target.value) }))
+                        }
+                      />
+                    </div>
+
+                    <div className="setting-group" style={{ marginBottom: 0 }}>
+                      <label htmlFor="searchbar-edge" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                        <span>边缘高光</span>
+                        <output style={{ color: '#38bdf8' }}>{(pageLayoutSettings.searchBarEdgeHighlight ?? 0.28).toFixed(2)}</output>
+                      </label>
+                      <input
+                        id="searchbar-edge"
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={pageLayoutSettings.searchBarEdgeHighlight ?? 0.28}
+                        onChange={(e) =>
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarEdgeHighlight: Number(e.target.value) }))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

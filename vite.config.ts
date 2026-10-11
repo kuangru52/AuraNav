@@ -572,9 +572,20 @@ const syncPlugin = () => ({
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), syncPlugin()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        },
+      },
+    },
+  },
   server: {
-    host: true,
+    host: 'localhost',
     port: 5173,
+    strictPort: false,
     proxy: {
       '/api/bing-wallpaper': {
         target: 'https://www.bing.com',

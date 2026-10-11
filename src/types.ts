@@ -72,4 +72,7 @@ export type PageLayoutSettings = {
   // 分类栏搜索框
   showSearchBar: boolean
   defaultSearchEngine: string
+  searchBarBlur?: number
+  searchBarOpacity?: number
+  searchBarEdgeHighlight?: number
 }

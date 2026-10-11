@@ -738,27 +738,43 @@ const server = http.createServer((req, res) => {
     if (fs.existsSync(targetFilePath) && fs.statSync(targetFilePath).isFile()) {
       const ext = path.extname(targetFilePath);
       const cType = MIME_TYPES[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': cType });
+      res.writeHead(200, {
+        'Content-Type': cType,
+        'Cache-Control': 'public, max-age=86400',
+      });
       res.end(fs.readFileSync(targetFilePath));
       return;
     }
   }
 
   // 6. SPA Static files serving from dist/
+  let isHtml = false;
   let filePath = path.join(PUBLIC_DIR, cleanUrl === '/' ? 'index.html' : cleanUrl);
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(PUBLIC_DIR, 'index.html');
+    isHtml = true;
+  } else if (cleanUrl === '/' || cleanUrl.endsWith('.html')) {
+    isHtml = true;
   }
 
   const extname = path.extname(filePath);
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
+
+  const cacheHeader = isHtml
+    ? 'no-cache'
+    : cleanUrl.startsWith('/assets/')
+    ? 'public, max-age=31536000, immutable'
+    : 'public, max-age=86400';
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('404 Not Found');
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': cacheHeader,
+      });
       res.end(content, 'utf-8');
     }
   });
