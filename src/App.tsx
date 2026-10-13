@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, DragOverlay, type DragStartEvent, type DragMoveEvent, type DragEndEvent } from '@dnd-kit/core'
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, pointerWithin, useSensor, useSensors, useDroppable, DragOverlay, type CollisionDetection, type DragStartEvent, type DragMoveEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 import type { SiteCard, NormalGlassSettings, WallpaperSettings, Credentials, PageLayoutSettings } from './types'
@@ -122,6 +122,23 @@ const isExtensionEnv = () => {
 }
 
 const IS_EXTENSION = isExtensionEnv()
+
+function AllCategoryPill({ isAllActive, allPillStyle, onSelect, onContextMenu }: { isAllActive: boolean; allPillStyle: React.CSSProperties; onSelect: (c: string) => void; onContextMenu: (e: React.MouseEvent, c: string) => void }) {
+  const { setNodeRef } = useDroppable({ id: '全部' })
+  return (
+    <span ref={setNodeRef} className="category-item">
+      <button
+        type="button"
+        className={isAllActive ? 'category-pill active' : 'category-pill'}
+        onClick={() => onSelect('全部')}
+        onContextMenu={(e) => onContextMenu(e, '全部')}
+        style={allPillStyle}
+      >
+        全部
+      </button>
+    </span>
+  )
+}
 
 function App() {
   // 1. 卡片与分组状态 (存储于 sync.json)
@@ -640,6 +657,14 @@ function App() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
+  const customCollisionDetection: CollisionDetection = useCallback((args) => {
+    const pointerCollisions = pointerWithin(args)
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions
+    }
+    return closestCenter(args)
+  }, [])
+
   useEffect(() => {
     if (!showQuickMenu) return
     const closeOnOutsidePointer = (event: PointerEvent) => {
@@ -948,12 +973,10 @@ function App() {
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [isShrunkAbove, setIsShrunkAbove] = useState(false)
-  const [dragOverGroup, setDragOverGroup] = useState<string | null>(null)
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragId(String(event.active.id))
     setIsShrunkAbove(false)
-    setDragOverGroup(null)
   }
 
   const handleDragMove = (event: DragMoveEvent) => {
@@ -963,12 +986,6 @@ function App() {
 
     const overIdStr = event.over ? String(event.over.id) : ''
     const isOverGroup = groups.includes(overIdStr) || overIdStr === '全部'
-
-    if (isOverGroup) {
-      setDragOverGroup(overIdStr)
-    } else {
-      setDragOverGroup(null)
-    }
 
     let isAboveThreshold = false
     const floatingBarEl = document.querySelector('.floating-edit-card') || document.querySelector('.category-bar')
@@ -987,7 +1004,6 @@ function App() {
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragId(null)
     setIsShrunkAbove(false)
-    setDragOverGroup(null)
 
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -1030,7 +1046,7 @@ function App() {
     setCards((previousCards) => {
       let visibleIndex = 0
       return previousCards.map((card) => {
-        const visible = selectedCategory === '全部' || card.category === selectedCategory
+        const visible = pageLayoutSettings.showCategories === false || selectedCategory === '全部' || card.category === selectedCategory
         if (!visible) return card
         return reorderedVisibleCards[visibleIndex++] ?? card
       })
@@ -1190,7 +1206,7 @@ function App() {
         )}
       </div>
       <div className="wallpaper-overlay" />
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={customCollisionDetection} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
 
         <Header
           isEditing={isEditing}
@@ -1229,7 +1245,7 @@ function App() {
                   const pillBlur = pageLayoutSettings.searchBarBlur ?? 20
                   const pillOpacity = pageLayoutSettings.searchBarOpacity ?? 0.45
                   const pillEdge = pageLayoutSettings.searchBarEdgeHighlight ?? 0.28
-                  const isAllActive = selectedCategory === '全部' || dragOverGroup === '全部'
+                  const isAllActive = selectedCategory === '全部'
 
                   const allPillColor = pageLayoutSettings.groupColors?.['全部'] || ''
                   const hasAllCustomColor = !!allPillColor
@@ -1265,17 +1281,12 @@ function App() {
                       {(pageLayoutSettings.showCategories !== false || isEditing) && (
                         <>
                           {/* 固定“全部”分类按钮 */}
-                          <span className="category-item">
-                            <button
-                              type="button"
-                              className={isAllActive ? 'category-pill active' : 'category-pill'}
-                              onClick={() => setSelectedCategory('全部')}
-                              onContextMenu={(e) => handleGroupContextMenu(e, '全部')}
-                              style={allPillStyle}
-                            >
-                              全部
-                            </button>
-                          </span>
+                          <AllCategoryPill
+                            isAllActive={isAllActive}
+                            allPillStyle={allPillStyle}
+                            onSelect={setSelectedCategory}
+                            onContextMenu={handleGroupContextMenu}
+                          />
 
                           {/* 可拖拽排序的自定义分组列表 */}
                           <SortableContext items={groups} strategy={horizontalListSortingStrategy}>
@@ -1293,7 +1304,6 @@ function App() {
                                 opacity={pillOpacity}
                                 edgeHighlight={pillEdge}
                                 color={pageLayoutSettings.groupColors?.[category] || ''}
-                                dragOverGroup={dragOverGroup}
                               />
                             ))}
                           </SortableContext>

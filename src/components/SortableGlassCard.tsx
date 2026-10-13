@@ -111,7 +111,7 @@ export const SortableGlassCard = React.memo(function SortableGlassCard({
 
       {/* 3. 卡片主体 */}
       <a
-        href={isEditing ? undefined : card.url}
+        href={isEditing ? undefined : (!card.url ? '#' : (/^https?:\/\//i.test(card.url) ? card.url : `https://${card.url}`))}
         target="_blank"
         rel="noreferrer"
         className="site-card"

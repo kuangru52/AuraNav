@@ -14,7 +14,6 @@ type SortableGroupPillProps = {
   opacity?: number
   edgeHighlight?: number
   color?: string
-  dragOverGroup?: string | null
 }
 
 export function SortableGroupPill({
@@ -29,14 +28,13 @@ export function SortableGroupPill({
   opacity = 0.45,
   edgeHighlight = 0.28,
   color = '',
-  dragOverGroup = null,
 }: SortableGroupPillProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: category,
     disabled: !isEditing,
   })
 
-  const isActive = selectedCategory === category || dragOverGroup === category
+  const isActive = selectedCategory === category
   const pillColor = color || ''
   const hasCustomColor = !!pillColor
 
