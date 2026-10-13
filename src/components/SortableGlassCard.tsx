@@ -7,6 +7,7 @@ type SortableGlassCardProps = {
   card: SiteCard
   normalSettings: NormalGlassSettings
   isEditing: boolean
+  hideCardDescription?: boolean
   onRemove: (id: string) => void
   onEdit: (card: SiteCard) => void
   onContextMenu?: (event: React.MouseEvent, card: SiteCard) => void
@@ -16,6 +17,7 @@ export const SortableGlassCard = React.memo(function SortableGlassCard({
   card,
   normalSettings,
   isEditing,
+  hideCardDescription = false,
   onRemove,
   onEdit,
   onContextMenu,
@@ -146,7 +148,7 @@ export const SortableGlassCard = React.memo(function SortableGlassCard({
         </div>
         <div className="site-body">
           <h4>{card.title}</h4>
-          {card.description && <p>{card.description}</p>}
+          {!hideCardDescription && card.description && <p>{card.description}</p>}
         </div>
       </a>
 

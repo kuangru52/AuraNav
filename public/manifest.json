@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "栖屿 · AuraNav 极简新标签页",
   "short_name": "AuraNav",
-  "version": "2.0.6",
+  "version": "3.0.1",
   "description": "极简·高颜值·云端跨设备个人导航工作台新标签页",
   "chrome_url_overrides": {
     "newtab": "index.html"

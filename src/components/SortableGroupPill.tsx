@@ -1,3 +1,4 @@
+import React from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
@@ -8,6 +9,11 @@ type SortableGroupPillProps = {
   groupsCount: number
   onSelect: (category: string) => void
   onRemove: (category: string) => void
+  onContextMenu?: (event: React.MouseEvent, category: string) => void
+  blur?: number
+  opacity?: number
+  edgeHighlight?: number
+  color?: string
 }
 
 export function SortableGroupPill({
@@ -17,11 +23,42 @@ export function SortableGroupPill({
   groupsCount,
   onSelect,
   onRemove,
+  onContextMenu,
+  blur = 20,
+  opacity = 0.45,
+  edgeHighlight = 0.28,
+  color = '',
 }: SortableGroupPillProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: category,
     disabled: !isEditing,
   })
+
+  const isActive = selectedCategory === category
+  const pillColor = color || ''
+  const hasCustomColor = !!pillColor
+
+  const customStyle: React.CSSProperties = {
+    cursor: isEditing ? 'grab' : 'pointer',
+    paddingLeft: isEditing ? '22px' : '14px',
+    position: 'relative',
+    touchAction: 'none',
+    backdropFilter: blur > 0 ? `blur(${blur}px) saturate(160%)` : 'none',
+    WebkitBackdropFilter: blur > 0 ? `blur(${blur}px) saturate(160%)` : 'none',
+    background: isActive
+      ? (hasCustomColor
+          ? `linear-gradient(135deg, ${pillColor}, ${pillColor}88)`
+          : `linear-gradient(135deg, rgba(191, 219, 254, ${Math.min(0.85, opacity + 0.15)}), rgba(255, 255, 255, ${Math.min(0.5, opacity * 0.6)}))`)
+      : (hasCustomColor
+          ? (pillColor.startsWith('#') ? `${pillColor}38` : pillColor)
+          : `rgba(15, 23, 42, ${opacity})`),
+    border: `1px solid ${hasCustomColor
+      ? (pillColor.startsWith('#') ? `${pillColor}a0` : pillColor)
+      : (isActive ? `rgba(255, 255, 255, ${Math.min(1, edgeHighlight + 0.35)})` : `rgba(255, 255, 255, ${edgeHighlight})`)}`,
+    boxShadow: isActive && hasCustomColor
+      ? `0 0 16px ${pillColor.startsWith('#') ? `${pillColor}80` : pillColor}`
+      : `inset 0 1px 0 rgba(255, 255, 255, ${Math.min(1, edgeHighlight * 0.7)}), 0 5px 14px rgba(15, 23, 42, ${Math.min(0.5, opacity * 0.5)})`,
+  }
 
   return (
     <span
@@ -41,14 +78,16 @@ export function SortableGroupPill({
     >
       <button
         type="button"
-        className={selectedCategory === category ? 'category-pill active' : 'category-pill'}
+        className={isActive ? 'category-pill active' : 'category-pill'}
         onClick={() => onSelect(category)}
-        style={{
-          cursor: isEditing ? 'grab' : 'pointer',
-          paddingLeft: isEditing ? '22px' : '14px',
-          position: 'relative',
-          touchAction: 'none',
+        onContextMenu={(e) => {
+          if (onContextMenu) {
+            e.preventDefault()
+            e.stopPropagation()
+            onContextMenu(e, category)
+          }
         }}
+        style={customStyle}
       >
         {/* 编辑模式下的 6 点拖拽手柄指示 */}
         {isEditing && (

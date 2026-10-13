@@ -365,7 +365,7 @@ export function SiteModal({
                 </div>
                 {allAvailableIcons.length === 0 ? (
                   <p style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.45)', margin: 0, padding: '8px 0' }}>
-                    暂无保存的图片图标，您可在设置-数据目录中批量上传。
+                    暂无保存的图片图标，您可在设置-图库中批量上传。
                   </p>
                 ) : (
                   <div

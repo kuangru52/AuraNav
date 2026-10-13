@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, DragOverlay, type DragStartEvent, type DragMoveEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 import type { SiteCard, NormalGlassSettings, WallpaperSettings, Credentials, PageLayoutSettings } from './types'
@@ -102,6 +102,8 @@ const defaultPageLayoutSettings: PageLayoutSettings = {
   searchBarBlur: 20,
   searchBarOpacity: 0.45,
   searchBarEdgeHighlight: 0.28,
+  hideCardDescription: false,
+  showCategories: true,
 }
 
 const defaultNormalSettings: NormalGlassSettings = {
@@ -618,6 +620,9 @@ function App() {
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
   const [showGroupForm, setShowGroupForm] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
+  const [editingGroup, setEditingGroup] = useState<string | null>(null)
+  const [groupColorDraft, setGroupColorDraft] = useState<string>('')
+  const [groupContextMenu, setGroupContextMenu] = useState<{ x: number; y: number; category: string } | null>(null)
   const [form, setForm] = useState({
     title: '',
     url: '',
@@ -650,6 +655,24 @@ function App() {
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [showQuickMenu])
+
+  useEffect(() => {
+    if (!groupContextMenu) return
+    const closeMenu = (e: PointerEvent) => {
+      const menuEl = document.querySelector('.group-context-menu')
+      if (menuEl && menuEl.contains(e.target as Node)) {
+        return
+      }
+      setGroupContextMenu(null)
+    }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setGroupContextMenu(null) }
+    document.addEventListener('pointerdown', closeMenu)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [groupContextMenu])
 
   useEffect(() => {
     setIntervalDraft(String(wallpaperSettings.interval))
@@ -803,11 +826,196 @@ function App() {
     setCards((prev) => prev.filter((card) => card.id !== id))
   }, [])
 
-  const reorderCards = ({ active, over }: DragEndEvent) => {
+  // 打开创建分组模态框
+  const openAddGroupModal = () => {
+    setEditingGroup(null)
+    setNewGroupName('')
+    setGroupColorDraft('')
+    setShowGroupForm(true)
+  }
+
+  // 打开编辑分组模态框
+  const openEditGroupModal = (category: string) => {
+    setEditingGroup(category)
+    setNewGroupName(category)
+    setGroupColorDraft(pageLayoutSettings.groupColors?.[category] || '')
+    setShowGroupForm(true)
+  }
+
+  // 保存分组 (新建 或 编辑)
+  const handleSaveGroup = () => {
+    const trimmedName = newGroupName.trim()
+    if (!trimmedName) return
+
+    const currentColors = pageLayoutSettings.groupColors || {}
+
+    if (editingGroup) {
+      const oldName = editingGroup
+      // 1. 如果修改了分组名称 -> 更新 groups 列表中的名称，并将该分组下所有卡片的 category 同步更新！
+      if (oldName !== trimmedName) {
+        setGroups((prev) => prev.map((g) => (g === oldName ? trimmedName : g)))
+        setCards((prevCards) =>
+          prevCards.map((card) =>
+            card.category === oldName ? { ...card, category: trimmedName } : card
+          )
+        )
+        if (selectedCategory === oldName) {
+          setSelectedCategory(trimmedName)
+        }
+      }
+
+      // 2. 更新分组胶囊颜色
+      const updatedColors = { ...currentColors }
+      if (oldName !== trimmedName) {
+        delete updatedColors[oldName]
+      }
+      if (groupColorDraft) {
+        updatedColors[trimmedName] = groupColorDraft
+      } else {
+        delete updatedColors[trimmedName]
+      }
+
+      setPageLayoutSettings((prev) => ({
+        ...prev,
+        groupColors: updatedColors,
+      }))
+    } else {
+      // 新建分组
+      if (groups.includes(trimmedName)) return
+      setGroups((prev) => [...prev, trimmedName])
+      setSelectedCategory(trimmedName)
+
+      if (groupColorDraft) {
+        setPageLayoutSettings((prev) => ({
+          ...prev,
+          groupColors: {
+            ...(prev.groupColors || {}),
+            [trimmedName]: groupColorDraft,
+          },
+        }))
+      }
+    }
+
+    setEditingGroup(null)
+    setNewGroupName('')
+    setGroupColorDraft('')
+    setShowGroupForm(false)
+  }
+
+  // 删除某个分组，并同时删除该分组下的所有卡片！【全部】不可删除。
+  const confirmDeleteGroup = (category: string) => {
+    if (category === '全部' || groups.length <= 1) {
+      alert('【全部】及默认唯一分组不可删除！')
+      return
+    }
+
+    const cardCount = cards.filter((c) => c.category === category).length
+    const confirmMsg = cardCount > 0
+      ? `⚠️ 确定要删除分组【${category}】吗？\n该分组下的 ${cardCount} 个网址卡片将被一并彻底删除，且不可撤销！`
+      : `确定要删除分组【${category}】吗？`
+
+    if (!window.confirm(confirmMsg)) return
+
+    const remainingGroups = groups.filter((g) => g !== category)
+
+    setGroups(remainingGroups)
+    // 关键功能：同时删除该分组下的所有卡片！
+    setCards((prevCards) => prevCards.filter((card) => card.category !== category))
+
+    if (selectedCategory === category) {
+      setSelectedCategory('全部')
+    }
+
+    if (pageLayoutSettings.groupColors?.[category]) {
+      setPageLayoutSettings((prev) => {
+        const nextColors = { ...(prev.groupColors || {}) }
+        delete nextColors[category]
+        return { ...prev, groupColors: nextColors }
+      })
+    }
+  }
+
+  // 分组右键菜单回调
+  const handleGroupContextMenu = (event: React.MouseEvent, category: string) => {
+    if (category === '全部') return
+    event.preventDefault()
+    event.stopPropagation()
+    setGroupContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - 150),
+      y: Math.min(event.clientY, window.innerHeight - 120),
+      category,
+    })
+  }
+
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const [isShrunkAbove, setIsShrunkAbove] = useState(false)
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id))
+    setIsShrunkAbove(false)
+  }
+
+  const handleDragMove = (event: DragMoveEvent) => {
+    const activeIdStr = String(event.active.id)
+    const isCard = cards.some((c) => c.id === activeIdStr)
+    if (!isCard) return
+
+    const overIdStr = event.over ? String(event.over.id) : ''
+    const isOverGroup = groups.includes(overIdStr) || overIdStr === '全部'
+
+    let isAboveThreshold = false
+    const floatingBarEl = document.querySelector('.floating-edit-card') || document.querySelector('.category-bar')
+    if (floatingBarEl) {
+      const rect = floatingBarEl.getBoundingClientRect()
+      const currentY = event.active.rect.current.translated?.top
+      if (currentY !== undefined && currentY <= rect.bottom + 20) {
+        isAboveThreshold = true
+      }
+    }
+
+    setIsShrunkAbove(isOverGroup || isAboveThreshold)
+  }
+
+  // 统一拖拽处理：支持【卡片交换排序】、【分组胶囊交换排序】以及【卡片直接拖拽到分组胶囊进行跨组归类】
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null)
+    setIsShrunkAbove(false)
+
+    const { active, over } = event
     if (!over || active.id === over.id) return
 
-    const previousIndex = filteredCards.findIndex((card) => card.id === active.id)
-    const nextIndex = filteredCards.findIndex((card) => card.id === over.id)
+    const activeIdStr = String(active.id)
+    const overIdStr = String(over.id)
+
+    // 1. 拖拽的是【分组胶囊】
+    if (groups.includes(activeIdStr)) {
+      if (groups.includes(overIdStr)) {
+        const oldIndex = groups.indexOf(activeIdStr)
+        const newIndex = groups.indexOf(overIdStr)
+        if (oldIndex >= 0 && newIndex >= 0) {
+          setGroups((prev) => arrayMove(prev, oldIndex, newIndex))
+        }
+      }
+      return
+    }
+
+    // 2. 拖拽的是【网址卡片】
+    const draggedCard = cards.find((c) => c.id === activeIdStr)
+    if (!draggedCard) return
+
+    // 2.1: 卡片拖拽放置到了【分组胶囊】上 -> 自动跨分组归类！
+    if (groups.includes(overIdStr)) {
+      setCards((prevCards) =>
+        prevCards.map((card) =>
+          card.id === activeIdStr ? { ...card, category: overIdStr } : card
+        )
+      )
+      return
+    }
+
+    // 2.2: 卡片拖拽放置到了【另一个卡片】上 -> 调整视图中的卡片排序
+    const previousIndex = filteredCards.findIndex((card) => card.id === activeIdStr)
+    const nextIndex = filteredCards.findIndex((card) => card.id === overIdStr)
     if (previousIndex < 0 || nextIndex < 0) return
 
     const reorderedVisibleCards = arrayMove(filteredCards, previousIndex, nextIndex)
@@ -818,37 +1026,6 @@ function App() {
         if (!visible) return card
         return reorderedVisibleCards[visibleIndex++] ?? card
       })
-    })
-  }
-
-  const addGroup = () => {
-    const name = newGroupName.trim()
-    if (!name || groups.includes(name)) return
-    setGroups((prev) => [...prev, name])
-    setSelectedCategory(name)
-    setNewGroupName('')
-    setShowGroupForm(false)
-  }
-
-  const removeGroup = (name: string) => {
-    if (groups.length <= 1) return
-    const remainingGroups = groups.filter((group) => group !== name)
-    const fallbackGroup = remainingGroups[0]
-    setGroups(remainingGroups)
-    setCards((prev) => prev.map((card) => card.category === name ? { ...card, category: fallbackGroup } : card))
-    if (selectedCategory === name) setSelectedCategory(fallbackGroup ?? '开发')
-  }
-
-  // 拖拽重新调整分组排序
-  const reorderGroups = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-
-    setGroups((prev) => {
-      const oldIndex = prev.indexOf(String(active.id))
-      const newIndex = prev.indexOf(String(over.id))
-      if (oldIndex < 0 || newIndex < 0) return prev
-      return arrayMove(prev, oldIndex, newIndex)
     })
   }
 
@@ -939,10 +1116,13 @@ function App() {
   }
 
   const filteredCards = useMemo(() => {
+    if (pageLayoutSettings.showCategories === false) {
+      return cards
+    }
     return cards.filter((card) => {
       return selectedCategory === '全部' || card.category === selectedCategory
     })
-  }, [cards, selectedCategory])
+  }, [cards, selectedCategory, pageLayoutSettings.showCategories])
 
   const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; card: SiteCard } | null>(null)
 
@@ -1002,7 +1182,7 @@ function App() {
         )}
       </div>
       <div className="wallpaper-overlay" />
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorderCards}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
 
         <Header
           isEditing={isEditing}
@@ -1021,7 +1201,7 @@ function App() {
 
         <div className="content-area">
           <main className="main-panel">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorderGroups}>
+            {((pageLayoutSettings.showCategories !== false || pageLayoutSettings.showSearchBar) || isEditing) && (
               <div
                 className="category-bar"
                 style={{
@@ -1034,37 +1214,83 @@ function App() {
                     : pageLayoutSettings.categoryAlign,
                 }}
               >
-                {/* 固定“全部”分类按钮 */}
-                <span className="category-item">
-                  <button
-                    type="button"
-                    className={selectedCategory === '全部' ? 'category-pill active' : 'category-pill'}
-                    onClick={() => setSelectedCategory('全部')}
-                  >
-                    全部
-                  </button>
-                </span>
+                {/* 固定与自定义分组列表 */}
+                {(() => {
+                  const pillBlur = pageLayoutSettings.searchBarBlur ?? 20
+                  const pillOpacity = pageLayoutSettings.searchBarOpacity ?? 0.45
+                  const pillEdge = pageLayoutSettings.searchBarEdgeHighlight ?? 0.28
+                  const isAllActive = selectedCategory === '全部'
 
-                {/* 可拖拽排序的自定义分组列表 */}
-                <SortableContext items={groups} strategy={horizontalListSortingStrategy}>
-                  {groups.map((category) => (
-                    <SortableGroupPill
-                      key={category}
-                      category={category}
-                      selectedCategory={selectedCategory}
-                      isEditing={isEditing}
-                      groupsCount={groups.length}
-                      onSelect={setSelectedCategory}
-                      onRemove={removeGroup}
-                    />
-                  ))}
-                </SortableContext>
+                  const allPillStyle: React.CSSProperties = {
+                    backdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
+                    WebkitBackdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
+                    background: isAllActive
+                      ? `linear-gradient(135deg, rgba(191, 219, 254, ${Math.min(0.85, pillOpacity + 0.15)}), rgba(255, 255, 255, ${Math.min(0.5, pillOpacity * 0.6)}))`
+                      : `rgba(15, 23, 42, ${pillOpacity})`,
+                    border: `1px solid rgba(255, 255, 255, ${isAllActive ? Math.min(1, pillEdge + 0.35) : pillEdge})`,
+                    boxShadow: `inset 0 1px 0 rgba(255, 255, 255, ${Math.min(1, pillEdge * 0.7)}), 0 5px 14px rgba(15, 23, 42, ${Math.min(0.5, pillOpacity * 0.5)})`,
+                  }
 
-                {isEditing && (
-                  <button type="button" className="category-add-button" onClick={() => setShowGroupForm(true)}>
-                    + 新建分组
-                  </button>
-                )}
+                  const addBtnStyle: React.CSSProperties = {
+                    backdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
+                    WebkitBackdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
+                    background: `rgba(15, 23, 42, ${Math.max(0.15, pillOpacity * 0.5)})`,
+                    border: `1px dashed rgba(255, 255, 255, ${Math.min(1, pillEdge + 0.2)})`,
+                    boxShadow: `inset 0 1px 0 rgba(255, 255, 255, ${Math.min(1, pillEdge * 0.7)}), 0 5px 14px rgba(15, 23, 42, ${Math.min(0.5, pillOpacity * 0.5)})`,
+                  }
+
+                  return (
+                    <>
+                      {(pageLayoutSettings.showCategories !== false || isEditing) && (
+                        <>
+                          {/* 固定“全部”分类按钮 */}
+                          <span className="category-item">
+                            <button
+                              type="button"
+                              className={isAllActive ? 'category-pill active' : 'category-pill'}
+                              onClick={() => setSelectedCategory('全部')}
+                              onContextMenu={(e) => e.preventDefault()}
+                              style={allPillStyle}
+                            >
+                              全部
+                            </button>
+                          </span>
+
+                          {/* 可拖拽排序的自定义分组列表 */}
+                          <SortableContext items={groups} strategy={horizontalListSortingStrategy}>
+                            {groups.map((category) => (
+                              <SortableGroupPill
+                                key={category}
+                                category={category}
+                                selectedCategory={selectedCategory}
+                                isEditing={isEditing}
+                                groupsCount={groups.length}
+                                onSelect={setSelectedCategory}
+                                onRemove={confirmDeleteGroup}
+                                onContextMenu={handleGroupContextMenu}
+                                blur={pillBlur}
+                                opacity={pillOpacity}
+                                edgeHighlight={pillEdge}
+                                color={pageLayoutSettings.groupColors?.[category] || ''}
+                              />
+                            ))}
+                          </SortableContext>
+
+                          {isEditing && (
+                            <button
+                              type="button"
+                              className="category-add-button"
+                              onClick={openAddGroupModal}
+                              style={addBtnStyle}
+                            >
+                              + 新建分组
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )
+                })()}
 
                 {/* 分类栏居中搜索框 (手机端自动隐藏) */}
                 {pageLayoutSettings.showSearchBar && (
@@ -1076,7 +1302,7 @@ function App() {
                   />
                 )}
               </div>
-            </DndContext>
+            )}
 
             {/* 编辑模式下三大快捷功能悬浮独立卡片 */}
             {isEditing && (
@@ -1173,6 +1399,7 @@ function App() {
                     card={card}
                     normalSettings={normalSettings}
                     isEditing={isEditing}
+                    hideCardDescription={pageLayoutSettings.hideCardDescription}
                     onRemove={removeCard}
                     onEdit={openEditCard}
                     onContextMenu={handleCardContextMenu}
@@ -1207,12 +1434,90 @@ function App() {
 
         <GroupModal
           isOpen={showGroupForm}
+          editingGroup={editingGroup}
           newGroupName={newGroupName}
+          groupColor={groupColorDraft}
           groups={groups}
           onGroupNameChange={setNewGroupName}
-          onClose={() => setShowGroupForm(false)}
-          onAdd={addGroup}
+          onGroupColorChange={setGroupColorDraft}
+          onClose={() => {
+            setShowGroupForm(false)
+            setEditingGroup(null)
+          }}
+          onSave={handleSaveGroup}
         />
+
+        {/* 分组右键快捷菜单 */}
+        {groupContextMenu && (
+          <div
+            className="group-context-menu"
+            style={{
+              position: 'fixed',
+              top: `${groupContextMenu.y}px`,
+              left: `${groupContextMenu.x}px`,
+              zIndex: 1000,
+              minWidth: '130px',
+              borderRadius: '12px',
+              padding: '6px',
+              background: 'rgba(13, 20, 34, 0.92)',
+              backdropFilter: 'blur(20px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 12px 30px rgba(0, 0, 0, 0.45)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '4px 8px', fontSize: '0.75rem', color: 'rgba(226,232,240,0.5)', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '4px' }}>
+              分组：{groupContextMenu.category}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const cat = groupContextMenu.category
+                setGroupContextMenu(null)
+                openEditGroupModal(cat)
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                padding: '8px 10px',
+                border: 0,
+                borderRadius: '8px',
+                background: 'transparent',
+                color: '#f8fafc',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+              }}
+            >
+              ✏️ 编辑分组
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const cat = groupContextMenu.category
+                setGroupContextMenu(null)
+                confirmDeleteGroup(cat)
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                padding: '8px 10px',
+                border: 0,
+                borderRadius: '8px',
+                background: 'transparent',
+                color: '#fca5a5',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+              }}
+            >
+              🗑️ 删除分组
+            </button>
+          </div>
+        )}
 
         {/* 编辑模式下的左侧无色高斯模糊动态滑动控制条 */}
         {isEditing && (
@@ -1443,6 +1748,125 @@ function App() {
         </Suspense>,
         document.body,
       )}
+        <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+          {(() => {
+            if (!activeDragId) return null
+
+            if (groups.includes(activeDragId)) {
+              const pillBlur = pageLayoutSettings.searchBarBlur ?? 20
+              const pillOpacity = pageLayoutSettings.searchBarOpacity ?? 0.45
+              const pillEdge = pageLayoutSettings.searchBarEdgeHighlight ?? 0.28
+              return (
+                <button
+                  type="button"
+                  className="category-pill active"
+                  style={{
+                    backdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
+                    WebkitBackdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
+                    background: `linear-gradient(135deg, rgba(191, 219, 254, ${Math.min(0.85, pillOpacity + 0.15)}), rgba(255, 255, 255, ${Math.min(0.5, pillOpacity * 0.6)}))`,
+                    border: `1px solid rgba(255, 255, 255, ${Math.min(1, pillEdge + 0.35)})`,
+                    boxShadow: `0 8px 24px rgba(15, 23, 42, 0.35)`,
+                    padding: '6px 14px',
+                    borderRadius: '999px',
+                    color: '#fff',
+                    fontWeight: 600,
+                    cursor: 'grabbing',
+                  }}
+                >
+                  {activeDragId}
+                </button>
+              )
+            }
+
+            const activeCard = cards.find((c) => c.id === activeDragId)
+            if (!activeCard) return null
+
+            const getCardBg = () => {
+              if (!activeCard.accent) return `rgba(15, 23, 42, ${Math.max(0.35, normalSettings.opacity * 0.9)})`
+              if (activeCard.accent.startsWith('#')) {
+                const alphaHex = Math.round(Math.max(0.25, normalSettings.opacity * 0.8) * 255).toString(16).padStart(2, '0')
+                return `${activeCard.accent}${alphaHex}`
+              }
+              return activeCard.accent
+            }
+
+            if (isShrunkAbove) {
+              return (
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    backgroundColor: getCardBg(),
+                    backdropFilter: normalSettings.blur > 0 ? `blur(${normalSettings.blur}px)` : 'none',
+                    WebkitBackdropFilter: normalSettings.blur > 0 ? `blur(${normalSettings.blur}px)` : 'none',
+                    border: activeCard.accent
+                      ? `2px solid ${activeCard.accent.startsWith('#') ? activeCard.accent : activeCard.accent}`
+                      : `2px solid rgba(255, 255, 255, 0.85)`,
+                    boxShadow: '0 12px 30px rgba(0, 0, 0, 0.45), 0 0 16px rgba(56, 189, 248, 0.6)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'grabbing',
+                    transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                    transform: 'scale(1.15)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div style={{ width: '24px', height: '24px', display: 'grid', placeItems: 'center', color: '#38bdf8' }}>
+                    {/^https?:\/\//i.test(activeCard.icon) || /^data:image\//i.test(activeCard.icon) || /^blob:/i.test(activeCard.icon) || activeCard.icon.startsWith('/data/') ? (
+                      <img src={activeCard.icon} alt={activeCard.title} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '4px' }} />
+                    ) : (
+                      <span style={{ fontSize: '13px', fontWeight: 800 }}>{activeCard.icon || activeCard.title.slice(0, 2)}</span>
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div
+                style={{
+                  width: `${pageLayoutSettings.cardHeight * 2.8}px`,
+                  minWidth: '180px',
+                  height: `${pageLayoutSettings.cardHeight}px`,
+                  borderRadius: `${normalSettings.cornerRadius}px`,
+                  backgroundColor: getCardBg(),
+                  backdropFilter: normalSettings.blur > 0 ? `blur(${normalSettings.blur}px)` : 'none',
+                  WebkitBackdropFilter: normalSettings.blur > 0 ? `blur(${normalSettings.blur}px)` : 'none',
+                  border: activeCard.accent
+                    ? `1px solid ${activeCard.accent.startsWith('#') ? `${activeCard.accent}90` : activeCard.accent}`
+                    : `1px solid rgba(255, 255, 255, 0.4)`,
+                  boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45), 0 0 20px rgba(56, 189, 248, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 12px',
+                  gap: '10px',
+                  cursor: 'grabbing',
+                  transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                  pointerEvents: 'none',
+                }}
+              >
+                <div style={{ width: '28px', height: '28px', flexShrink: 0, display: 'grid', placeItems: 'center', color: '#38bdf8' }}>
+                  {/^https?:\/\//i.test(activeCard.icon) || /^data:image\//i.test(activeCard.icon) || /^blob:/i.test(activeCard.icon) || activeCard.icon.startsWith('/data/') ? (
+                    <img src={activeCard.icon} alt={activeCard.title} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '4px' }} />
+                  ) : (
+                    <span style={{ fontSize: '14px', fontWeight: 800 }}>{activeCard.icon || activeCard.title.slice(0, 2)}</span>
+                  )}
+                </div>
+                <div style={{ overflow: 'hidden' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                    {activeCard.title}
+                  </h4>
+                  {!pageLayoutSettings.hideCardDescription && activeCard.description && (
+                    <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'rgba(226, 232, 240, 0.65)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {activeCard.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+        </DragOverlay>
       </DndContext>
     </div>
   )

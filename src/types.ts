@@ -47,6 +47,9 @@ export type PageLayoutSettings = {
   cardHeight: number
   cardGapX: number
   cardGapY: number
+  hideCardDescription?: boolean
+  groupColors?: Record<string, string>
+  showCategories?: boolean
 
   // 顶栏 Logo 与标题自定义
   showLogo: boolean

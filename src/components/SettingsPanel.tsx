@@ -46,6 +46,15 @@ type SettingsPanelProps = {
   onDeleteStoredIcon?: (index: number) => void
 }
 
+const GROUP_PALETTES = [
+  { name: '马卡龙', colors: ['#fecdd3', '#bae6fd', '#fef08a', '#d9f99d', '#e9d5ff', '#fed7aa', '#ccfbf1', '#fbcfe8'] },
+  { name: '冰岛北欧', colors: ['#38bdf8', '#c084fc', '#f472b6', '#4ade80', '#fb923c', '#fde047', '#34d399', '#94a3b8'] },
+  { name: '莫兰迪', colors: ['#a8a29e', '#94a3b8', '#818cf8', '#64748b', '#78716c', '#6b7280', '#9ca3af', '#57534e'] },
+  { name: '赛博霓虹', colors: ['#38bdf8', '#c084fc', '#f472b6', '#4ade80', '#fb923c', '#22d3ee', '#f43f5e', '#a855f7'] },
+  { name: '日落暖阳', colors: ['#fdba74', '#f87171', '#f43f5e', '#fb923c', '#fde047', '#fed7aa', '#fca5a5', '#fb7185'] },
+  { name: '翡翠森林', colors: ['#34d399', '#2dd4bf', '#a7f3d0', '#86efac', '#10b981', '#14b8a6', '#059669', '#38bdf8'] },
+]
+
 export function SettingsPanel({
   showSettings,
   settingsCategory,
@@ -73,9 +82,10 @@ export function SettingsPanel({
   updateNormalGlass,
   currentWallpaper,
   credentials,
-  currentUser = { username: credentials.username || 'admin', isAdmin: true },
+  currentUser: _currentUser = { username: credentials.username || 'admin', isAdmin: true },
   onLogout,
   cards,
+  groups = [],
   storedIcons,
   onDeleteWallpaper,
   onResetCardIcon,
@@ -88,7 +98,8 @@ export function SettingsPanel({
 
   const [storageTab, setStorageTab] = React.useState<'icon' | 'wallpaper'>('icon')
   const [wallpaperTab, setWallpaperTab] = React.useState<'online' | 'local'>('online')
-  const [pageTab, setPageTab] = React.useState<'topbar' | 'category' | 'cards' | 'widgets'>('topbar')
+  const [pageTab, setPageTab] = React.useState<'topbar' | 'category' | 'cards' | 'glass'>('topbar')
+  const [groupPaletteIdx, setGroupPaletteIdx] = React.useState(0)
   const [showLogoGallery, setShowLogoGallery] = React.useState(false)
   const [showLogoUrlInput, setShowLogoUrlInput] = React.useState(false)
   const [showDonateModal, setShowDonateModal] = React.useState(false)
@@ -242,12 +253,40 @@ export function SettingsPanel({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <div className="settings-header-title">
-          <h3>设置</h3>
+        <div className="settings-header-title" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            className="action-button"
+            onClick={onLogout}
+            title="退出登录"
+            style={{
+              cursor: 'pointer',
+              padding: '4px 12px',
+              height: '28px',
+              borderRadius: '8px',
+              border: '1px solid rgba(239, 68, 68, 0.45)',
+              background: 'rgba(239, 68, 68, 0.2)',
+              color: '#fca5a5',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span>退出登录</span>
+          </button>
+          <button type="button" className="close-button" onClick={onClose} aria-label="关闭设置">
+            ×
+          </button>
         </div>
-        <button type="button" className="close-button" onClick={onClose} aria-label="关闭设置">
-          ×
-        </button>
       </div>
 
       <div className="settings-tabs" role="tablist" aria-label="设置分类">
@@ -258,17 +297,7 @@ export function SettingsPanel({
           className={settingsCategory === 'wallpaper' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('wallpaper')}
         >
-          <span>壁</span>
-          <span>纸</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={settingsCategory === 'glass'}
-          className={settingsCategory === 'glass' ? 'settings-tab active' : 'settings-tab'}
-          onClick={() => onSettingsCategoryChange('glass')}
-        >
-          <span>卡片风格</span>
+          壁纸
         </button>
         <button
           type="button"
@@ -277,8 +306,7 @@ export function SettingsPanel({
           className={settingsCategory === 'page' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('page')}
         >
-          <span>页</span>
-          <span>面</span>
+          页面
         </button>
         <button
           type="button"
@@ -287,7 +315,7 @@ export function SettingsPanel({
           className={settingsCategory === 'backup' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('backup')}
         >
-          <span>数据同步</span>
+          同步
         </button>
         <button
           type="button"
@@ -296,16 +324,7 @@ export function SettingsPanel({
           className={settingsCategory === 'storage' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('storage')}
         >
-          <span>数据目录</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={settingsCategory === 'account'}
-          className={settingsCategory === 'account' ? 'settings-tab active' : 'settings-tab'}
-          onClick={() => onSettingsCategoryChange('account')}
-        >
-          <span>账户安全</span>
+          图库
         </button>
         <button
           type="button"
@@ -314,8 +333,7 @@ export function SettingsPanel({
           className={settingsCategory === 'about' ? 'settings-tab active' : 'settings-tab'}
           onClick={() => onSettingsCategoryChange('about')}
         >
-          <span>关</span>
-          <span>于</span>
+          关于
         </button>
       </div>
 
@@ -685,183 +703,84 @@ export function SettingsPanel({
         </div>
       </section>
 
-      <section className="settings-section" hidden={settingsCategory !== 'glass'}>
-        <div className="glass-preview-wrap">
-          <div
-            className="glass-preview-stage"
-            style={{
-              backgroundImage: currentWallpaper ? `url("${currentWallpaper}")` : undefined,
-            }}
-          >
-            {(() => {
-              return (
-                <div
-                  className={'glass-preview-card'}
-                  style={{
-                    borderRadius: `${normalSettings.cornerRadius}px`,
-                    backgroundColor: `rgba(255, 255, 255, ${normalSettings.opacity * 0.35})`,
-                    backdropFilter: `blur(${normalSettings.blur}px)`,
-                    WebkitBackdropFilter: `blur(${normalSettings.blur}px)`,
-                    border: `1px solid rgba(255, 255, 255, ${normalSettings.edgeHighlight * 0.8})`,
-                    boxShadow: `0 8px 32px rgba(0, 0, 0, 0.25)`,
-                  }}
-                >
-                  <div className="site-card">
-                    <div className="site-icon" style={{ color: '#38bdf8' }}>栖</div>
-                    <div className="site-body">
-                      <h4>示例网站</h4>
-                      <p>example.com</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-
-        <div className="settings-grid glass-settings-grid">
-          <div className="setting-group">
-            <label htmlFor="normal-blur">
-              <span>背景高斯模糊</span>
-              <output>{normalSettings.blur}px</output>
-            </label>
-            <input
-              id="normal-blur"
-              type="range"
-              min={0}
-              max={40}
-              step={1}
-              value={normalSettings.blur}
-              onChange={(e) => updateNormalGlass('blur', Number(e.target.value))}
-            />
-          </div>
-          <div className="setting-group">
-            <label htmlFor="normal-opacity">
-              <span>玻璃不透明度</span>
-              <output>{normalSettings.opacity.toFixed(2)}</output>
-            </label>
-            <input
-              id="normal-opacity"
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={normalSettings.opacity}
-              onChange={(e) => updateNormalGlass('opacity', Number(e.target.value))}
-            />
-          </div>
-          <div className="setting-group">
-            <label htmlFor="normal-radius">
-              <span>卡片圆角</span>
-              <output>{normalSettings.cornerRadius}px</output>
-            </label>
-            <input
-              id="normal-radius"
-              type="range"
-              min={0}
-              max={80}
-              step={1}
-              value={normalSettings.cornerRadius}
-              onChange={(e) => updateNormalGlass('cornerRadius', Number(e.target.value))}
-            />
-          </div>
-          <div className="setting-group">
-            <label htmlFor="normal-edge">
-              <span>边缘高光</span>
-              <output>{normalSettings.edgeHighlight.toFixed(2)}</output>
-            </label>
-            <input
-              id="normal-edge"
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={normalSettings.edgeHighlight}
-              onChange={(e) => updateNormalGlass('edgeHighlight', Number(e.target.value))}
-            />
-          </div>
-        </div>
-      </section>
-
       {/* 页面布局设置 section */}
       <section className="settings-section" hidden={settingsCategory !== 'page'}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* 子选项卡 (顶栏 | 分类 | 卡片 | 时间与搜索 - 移动端自适应2x2) */}
+          {/* 子选项卡 (顶栏与时间 | 分组与搜索 | 卡片网格 | 卡片风格) */}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <div className="mode-switch page-subtabs-switch">
+            <div className="mode-switch page-subtabs-switch" style={{ width: '480px', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
               <button
                 type="button"
                 className={pageTab === 'topbar' ? 'mode-button active' : 'mode-button'}
                 onClick={() => setPageTab('topbar')}
               >
-                顶栏
+                顶栏与时间
               </button>
               <button
                 type="button"
                 className={pageTab === 'category' ? 'mode-button active' : 'mode-button'}
                 onClick={() => setPageTab('category')}
               >
-                分类
+                分组与搜索
               </button>
               <button
                 type="button"
                 className={pageTab === 'cards' ? 'mode-button active' : 'mode-button'}
                 onClick={() => setPageTab('cards')}
               >
-                卡片
+                卡片网格
               </button>
               <button
                 type="button"
-                className={pageTab === 'widgets' ? 'mode-button active' : 'mode-button'}
-                onClick={() => setPageTab('widgets')}
+                className={pageTab === 'glass' ? 'mode-button active' : 'mode-button'}
+                onClick={() => setPageTab('glass')}
               >
-                时间与搜索
+                卡片风格
               </button>
             </div>
           </div>
 
-          {/* 子选项卡 1：顶栏设置 */}
+          {/* 子选项卡 1：顶栏与时间设置 */}
           {pageTab === 'topbar' && (
-            <div className="settings-grid page-topbar-grid">
-              <div className="setting-group">
-                <label>
-                  <span>左右边距</span>
-                  <output>{pageLayoutSettings.topbarPaddingX}px</output>
-                </label>
-                <input
-                  type="range"
-                  min={0}
-                  max={200}
-                  step={2}
-                  value={pageLayoutSettings.topbarPaddingX}
-                  onChange={(e) =>
-                    onPageLayoutSettingsChange((prev) => ({ ...prev, topbarPaddingX: Number(e.target.value) }))
-                  }
-                />
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="settings-grid page-topbar-grid">
+                <div className="setting-group">
+                  <label>
+                    <span>左右边距</span>
+                    <output>{pageLayoutSettings.topbarPaddingX}px</output>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={200}
+                    step={2}
+                    value={pageLayoutSettings.topbarPaddingX}
+                    onChange={(e) =>
+                      onPageLayoutSettingsChange((prev) => ({ ...prev, topbarPaddingX: Number(e.target.value) }))
+                    }
+                  />
+                </div>
 
-              <div className="setting-group">
-                <label>
-                  <span>顶部边距</span>
-                  <output>{pageLayoutSettings.topbarPaddingTop}px</output>
-                </label>
-                <input
-                  type="range"
-                  min={0}
-                  max={80}
-                  step={1}
-                  value={pageLayoutSettings.topbarPaddingTop}
-                  onChange={(e) =>
-                    onPageLayoutSettingsChange((prev) => ({ ...prev, topbarPaddingTop: Number(e.target.value) }))
-                  }
-                />
-              </div>
+                <div className="setting-group">
+                  <label>
+                    <span>顶部边距</span>
+                    <output>{pageLayoutSettings.topbarPaddingTop}px</output>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={80}
+                    step={1}
+                    value={pageLayoutSettings.topbarPaddingTop}
+                    onChange={(e) =>
+                      onPageLayoutSettingsChange((prev) => ({ ...prev, topbarPaddingTop: Number(e.target.value) }))
+                    }
+                  />
+                </div>
 
-              {/* Logo 自定义 */}
-              <div className="setting-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc' }}>左上角 Logo 设置</span>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                {/* Logo 自定义 */}
+                <div className="setting-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
+                  <label className="checkbox-label" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px', width: 'fit-content' }}>
                     <input
                       type="checkbox"
                       checked={pageLayoutSettings.showLogo}
@@ -871,235 +790,232 @@ export function SettingsPanel({
                     />
                     <span>显示 Logo</span>
                   </label>
-                </div>
-                {pageLayoutSettings.showLogo && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
-                    {/* 行 1：Logo 标志 + 品牌主副标题实时预览 */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div
-                        style={{
-                          width: `${Math.max(32, Math.min(52, pageLayoutSettings.logoSize))}px`,
-                          height: `${Math.max(32, Math.min(52, pageLayoutSettings.logoSize))}px`,
-                          borderRadius: '12px',
-                          background: pageLayoutSettings.logoUrl ? 'transparent' : 'rgba(15, 23, 42, 0.6)',
-                          border: pageLayoutSettings.logoUrl ? 'none' : '1px solid rgba(255, 255, 255, 0.25)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          overflow: 'hidden',
-                          flexShrink: 0,
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                        }}
-                      >
-                        {pageLayoutSettings.logoUrl ? (
-                          <img
-                            src={pageLayoutSettings.logoUrl}
-                            alt="Logo 实时预览"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}
-                          />
-                        ) : (
-                          <div style={{ width: '80%', height: '80%', display: 'grid', placeItems: 'center' }}>
-                            <LogoIcon />
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        {pageLayoutSettings.showBrandName && (
-                          <div style={{ fontSize: '0.95rem', color: pageLayoutSettings.brandNameColor, fontWeight: 700, lineHeight: 1.2 }}>
-                            {pageLayoutSettings.brandName || '栖屿'}
-                          </div>
-                        )}
-                        {pageLayoutSettings.showBrandSubtitle && (
-                          <div style={{ fontSize: '0.75rem', color: pageLayoutSettings.brandSubtitleColor, lineHeight: 1.2, marginTop: '2px' }}>
-                            {pageLayoutSettings.brandSubtitle || '个人导航'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 行 2：Logo 尺寸滑动条 (左) + 3 个功能图标按键 (右侧红圈位置 - 同行并排) */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-                      {/* 左侧：Logo 尺寸 Slider */}
-                      <label style={{ display: 'grid', gap: '4px', width: '220px', maxWidth: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.75)' }}>
-                          <span>Logo 尺寸</span>
-                          <output style={{ color: '#38bdf8' }}>{pageLayoutSettings.logoSize}px</output>
-                        </div>
-                        <input
-                          type="range"
-                          min={20}
-                          max={64}
-                          step={1}
-                          value={pageLayoutSettings.logoSize}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, logoSize: Number(e.target.value) }))
-                          }
-                          style={{ width: '100%', cursor: 'pointer' }}
-                        />
-                      </label>
-
-                      {/* 右侧红圈位置：三个标志性 SVG 功能按键 */}
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ display: 'none' }}
-                          id="logo-file-input"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            try {
-                              const base64 = await compressImage(file, 128, 128, 0.85)
-                              const res = await fetch('/api/upload', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ type: 'icon', base64 }),
-                              })
-                              const data = await res.json()
-                              const logoUrl = res.ok && data.success && data.url ? data.url : base64
-                              onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl }))
-                            } catch {
-                              const fallback = await compressImage(file)
-                              onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: fallback }))
-                            } finally {
-                              e.target.value = ''
-                            }
-                          }}
-                        />
-
-                        {/* 1. 本地上传 📤 */}
-                        <label
-                          htmlFor="logo-file-input"
-                          title="1. 本地文件上传 Logo"
+                  {pageLayoutSettings.showLogo && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
+                      {/* 行 1：Logo 标志 + 品牌主副标题实时预览 */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div
                           style={{
-                            cursor: 'pointer',
-                            width: '38px',
-                            height: '38px',
+                            width: `${Math.max(32, Math.min(52, pageLayoutSettings.logoSize))}px`,
+                            height: `${Math.max(32, Math.min(52, pageLayoutSettings.logoSize))}px`,
+                            borderRadius: '12px',
+                            background: pageLayoutSettings.logoUrl ? 'transparent' : 'rgba(15, 23, 42, 0.6)',
+                            border: pageLayoutSettings.logoUrl ? 'none' : '1px solid rgba(255, 255, 255, 0.25)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            border: '1px solid rgba(255,255,255,0.22)',
-                            borderRadius: '10px',
-                            background: 'rgba(56, 189, 248, 0.15)',
-                            color: '#38bdf8',
-                            padding: 0,
-                            margin: 0,
-                            boxSizing: 'border-box',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
                           }}
                         >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: 0 }}>
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                          </svg>
-                        </label>
-
-                        {/* 2. 从服务器/数据目录选择 🗂️ */}
-                        <button
-                          type="button"
-                          title="2. 从服务器/数据目录图库选择"
-                          onClick={() => setShowLogoGallery((prev) => !prev)}
-                          style={{
-                            cursor: 'pointer',
-                            width: '38px',
-                            height: '38px',
-                            display: 'grid',
-                            placeItems: 'center',
-                            border: '1px solid rgba(255,255,255,0.22)',
-                            borderRadius: '10px',
-                            background: showLogoGallery ? 'rgba(168, 85, 247, 0.35)' : 'rgba(168, 85, 247, 0.15)',
-                            color: '#c084fc',
-                          }}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                            <polyline points="21 15 16 10 5 21"/>
-                          </svg>
-                        </button>
-
-                        {/* 3. 网络链接 🌐 */}
-                        <button
-                          type="button"
-                          title="3. 输入网络图片链接"
-                          onClick={() => setShowLogoUrlInput((prev) => !prev)}
-                          style={{
-                            cursor: 'pointer',
-                            width: '38px',
-                            height: '38px',
-                            display: 'grid',
-                            placeItems: 'center',
-                            border: '1px solid rgba(255,255,255,0.22)',
-                            borderRadius: '10px',
-                            background: showLogoUrlInput ? 'rgba(34, 197, 94, 0.35)' : 'rgba(34, 197, 94, 0.15)',
-                            color: '#4ade80',
-                          }}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="2" y1="12" x2="22" y2="12"/>
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/>
-                          </svg>
-                        </button>
-
-                        {pageLayoutSettings.logoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: '' }))}
-                            className="mini-button"
-                            style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-                          >
-                            恢复默认
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 网络链接输入框 */}
-                    {showLogoUrlInput && (
-                      <input
-                        type="text"
-                        placeholder="请输入网络 Logo 图片 URL (https://...)"
-                        value={pageLayoutSettings.logoUrl}
-                        onChange={(e) =>
-                          onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: e.target.value }))
-                        }
-                        style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(15,23,42,0.6)', color: '#fff', outline: 'none', fontSize: '0.8rem' }}
-                      />
-                    )}
-
-                    {/* 服务器/数据目录图库选择面板 */}
-                    {showLogoGallery && (
-                      <div style={{ padding: '10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'rgba(226,232,240,0.7)', display: 'block', marginBottom: '6px' }}>
-                          点击选择已存图标或壁纸作为 Logo：
-                        </span>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(42px, 1fr))', gap: '8px', maxHeight: '120px', overflowY: 'auto' }}>
-                          {storedIcons.map((icon, idx) => (
+                          {pageLayoutSettings.logoUrl ? (
                             <img
-                              key={idx}
-                              src={icon}
-                              alt="icon"
-                              onClick={() => {
-                                onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: icon }))
-                                setShowLogoGallery(false)
-                              }}
-                              style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)' }}
+                              src={pageLayoutSettings.logoUrl}
+                              alt="Logo 实时预览"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}
                             />
-                          ))}
+                          ) : (
+                            <div style={{ width: '80%', height: '80%', display: 'grid', placeItems: 'center' }}>
+                              <LogoIcon />
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          {pageLayoutSettings.showBrandName && (
+                            <div style={{ fontSize: '0.95rem', color: pageLayoutSettings.brandNameColor, fontWeight: 700, lineHeight: 1.2 }}>
+                              {pageLayoutSettings.brandName || '栖屿'}
+                            </div>
+                          )}
+                          {pageLayoutSettings.showBrandSubtitle && (
+                            <div style={{ fontSize: '0.75rem', color: pageLayoutSettings.brandSubtitleColor, lineHeight: 1.2, marginTop: '2px' }}>
+                              {pageLayoutSettings.brandSubtitle || '个人导航'}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
 
-              {/* 主标题自定义 */}
-              <div className="setting-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc' }}>主标题设置</span>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                      {/* 行 2：Logo 尺寸滑动条 (左) + 3 个功能图标按键 (右侧红圈位置 - 同行并排) */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+                        {/* 左侧：Logo 尺寸 Slider */}
+                        <label style={{ display: 'grid', gap: '4px', width: '220px', maxWidth: '100%' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.75)' }}>
+                            <span>Logo 尺寸</span>
+                            <output style={{ color: '#38bdf8' }}>{pageLayoutSettings.logoSize}px</output>
+                          </div>
+                          <input
+                            type="range"
+                            min={20}
+                            max={64}
+                            step={1}
+                            value={pageLayoutSettings.logoSize}
+                            onChange={(e) =>
+                              onPageLayoutSettingsChange((prev) => ({ ...prev, logoSize: Number(e.target.value) }))
+                            }
+                            style={{ width: '100%', cursor: 'pointer' }}
+                          />
+                        </label>
+
+                        {/* 右侧：三个标志性 SVG 功能按键 */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            id="logo-file-input"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              try {
+                                const base64 = await compressImage(file, 128, 128, 0.85)
+                                const res = await fetch('/api/upload', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ type: 'icon', base64 }),
+                                })
+                                const data = await res.json()
+                                const logoUrl = res.ok && data.success && data.url ? data.url : base64
+                                onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl }))
+                              } catch {
+                                const fallback = await compressImage(file)
+                                onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: fallback }))
+                              } finally {
+                                e.target.value = ''
+                              }
+                            }}
+                          />
+
+                          {/* 1. 本地上传 📤 */}
+                          <label
+                            htmlFor="logo-file-input"
+                            title="1. 本地文件上传 Logo"
+                            style={{
+                              cursor: 'pointer',
+                              width: '38px',
+                              height: '38px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255,255,255,0.22)',
+                              borderRadius: '10px',
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              color: '#38bdf8',
+                              padding: 0,
+                              margin: 0,
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: 0 }}>
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                              <polyline points="17 8 12 3 7 8"/>
+                              <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                          </label>
+
+                          {/* 2. 从服务器/数据目录选择 🗂️ */}
+                          <button
+                            type="button"
+                            title="2. 从服务器/数据目录图库选择"
+                            onClick={() => setShowLogoGallery((prev) => !prev)}
+                            style={{
+                              cursor: 'pointer',
+                              width: '38px',
+                              height: '38px',
+                              display: 'grid',
+                              placeItems: 'center',
+                              border: '1px solid rgba(255,255,255,0.22)',
+                              borderRadius: '10px',
+                              background: showLogoGallery ? 'rgba(168, 85, 247, 0.35)' : 'rgba(168, 85, 247, 0.15)',
+                              color: '#c084fc',
+                            }}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                              <polyline points="21 15 16 10 5 21"/>
+                            </svg>
+                          </button>
+
+                          {/* 3. 网络链接 🌐 */}
+                          <button
+                            type="button"
+                            title="3. 输入网络图片链接"
+                            onClick={() => setShowLogoUrlInput((prev) => !prev)}
+                            style={{
+                              cursor: 'pointer',
+                              width: '38px',
+                              height: '38px',
+                              display: 'grid',
+                              placeItems: 'center',
+                              border: '1px solid rgba(255,255,255,0.22)',
+                              borderRadius: '10px',
+                              background: showLogoUrlInput ? 'rgba(34, 197, 94, 0.35)' : 'rgba(34, 197, 94, 0.15)',
+                              color: '#4ade80',
+                            }}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10"/>
+                              <line x1="2" y1="12" x2="22" y2="12"/>
+                              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/>
+                            </svg>
+                          </button>
+
+                          {pageLayoutSettings.logoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: '' }))}
+                              className="mini-button"
+                              style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                            >
+                              恢复默认
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 网络链接输入框 */}
+                      {showLogoUrlInput && (
+                        <input
+                          type="text"
+                          placeholder="请输入网络 Logo 图片 URL (https://...)"
+                          value={pageLayoutSettings.logoUrl}
+                          onChange={(e) =>
+                            onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: e.target.value }))
+                          }
+                          style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(15,23,42,0.6)', color: '#fff', outline: 'none', fontSize: '0.8rem' }}
+                        />
+                      )}
+
+                      {/* 服务器/数据目录图库选择面板 */}
+                      {showLogoGallery && (
+                        <div style={{ padding: '10px', borderRadius: '12px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'rgba(226,232,240,0.7)', display: 'block', marginBottom: '6px' }}>
+                            点击选择已存图标或壁纸作为 Logo：
+                          </span>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(42px, 1fr))', gap: '8px', maxHeight: '120px', overflowY: 'auto' }}>
+                            {storedIcons.map((icon, idx) => (
+                              <img
+                                key={idx}
+                                src={icon}
+                                alt="icon"
+                                onClick={() => {
+                                  onPageLayoutSettingsChange((prev) => ({ ...prev, logoUrl: icon }))
+                                  setShowLogoGallery(false)
+                                }}
+                                style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)' }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 主标题自定义 */}
+                <div className="setting-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
+                  <label className="checkbox-label" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px', width: 'fit-content' }}>
                     <input
                       type="checkbox"
                       checked={pageLayoutSettings.showBrandName}
@@ -1109,61 +1025,58 @@ export function SettingsPanel({
                     />
                     <span>显示主标题</span>
                   </label>
-                </div>
-                {pageLayoutSettings.showBrandName && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-                    {/* 行 1：主标题文本输入框独立一行 */}
-                    <label style={{ display: 'grid', gap: '4px', width: '100%' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>主标题文本</span>
-                      <input
-                        type="text"
-                        value={pageLayoutSettings.brandName}
-                        onChange={(e) =>
-                          onPageLayoutSettingsChange((prev) => ({ ...prev, brandName: e.target.value }))
-                        }
-                        style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.4)', color: '#fff', outline: 'none', fontSize: '0.85rem' }}
-                      />
-                    </label>
+                  {pageLayoutSettings.showBrandName && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                      {/* 行 1：主标题文本输入框独立一行 */}
+                      <label style={{ display: 'grid', gap: '4px', width: '100%' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>主标题文本</span>
+                        <input
+                          type="text"
+                          value={pageLayoutSettings.brandName}
+                          onChange={(e) =>
+                            onPageLayoutSettingsChange((prev) => ({ ...prev, brandName: e.target.value }))
+                          }
+                          style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.4)', color: '#fff', outline: 'none', fontSize: '0.85rem' }}
+                        />
+                      </label>
 
-                    {/* 行 2：字号大小与颜色换行显示 */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: '12px', alignItems: 'center' }}>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
-                          <span>字号大小</span>
-                          <output>{pageLayoutSettings.brandNameFontSize}px</output>
-                        </div>
-                        <input
-                          type="range"
-                          min={12}
-                          max={32}
-                          step={1}
-                          value={pageLayoutSettings.brandNameFontSize}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, brandNameFontSize: Number(e.target.value) }))
-                          }
-                        />
-                      </label>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>颜色</span>
-                        <input
-                          type="color"
-                          value={pageLayoutSettings.brandNameColor}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, brandNameColor: e.target.value }))
-                          }
-                          style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
-                        />
-                      </label>
+                      {/* 行 2：字号大小与颜色换行显示 */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: '12px', alignItems: 'center' }}>
+                        <label style={{ display: 'grid', gap: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
+                            <span>字号大小</span>
+                            <output>{pageLayoutSettings.brandNameFontSize}px</output>
+                          </div>
+                          <input
+                            type="range"
+                            min={12}
+                            max={32}
+                            step={1}
+                            value={pageLayoutSettings.brandNameFontSize}
+                            onChange={(e) =>
+                              onPageLayoutSettingsChange((prev) => ({ ...prev, brandNameFontSize: Number(e.target.value) }))
+                            }
+                          />
+                        </label>
+                        <label style={{ display: 'grid', gap: '4px' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>颜色</span>
+                          <input
+                            type="color"
+                            value={pageLayoutSettings.brandNameColor}
+                            onChange={(e) =>
+                              onPageLayoutSettingsChange((prev) => ({ ...prev, brandNameColor: e.target.value }))
+                            }
+                            style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
+                          />
+                        </label>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              {/* 副标题自定义 */}
-              <div className="setting-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc' }}>副标题设置</span>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                {/* 副标题自定义 */}
+                <div className="setting-group" style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
+                  <label className="checkbox-label" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px', width: 'fit-content' }}>
                     <input
                       type="checkbox"
                       checked={pageLayoutSettings.showBrandSubtitle}
@@ -1173,128 +1086,400 @@ export function SettingsPanel({
                     />
                     <span>显示副标题</span>
                   </label>
+                  {pageLayoutSettings.showBrandSubtitle && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                      {/* 行 1：副标题文本输入框独立一行 */}
+                      <label style={{ display: 'grid', gap: '4px', width: '100%' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>副标题文本</span>
+                        <input
+                          type="text"
+                          value={pageLayoutSettings.brandSubtitle}
+                          onChange={(e) =>
+                            onPageLayoutSettingsChange((prev) => ({ ...prev, brandSubtitle: e.target.value }))
+                          }
+                          style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.4)', color: '#fff', outline: 'none', fontSize: '0.85rem' }}
+                        />
+                      </label>
+
+                      {/* 行 2：字号大小与颜色换行显示 */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: '12px', alignItems: 'center' }}>
+                        <label style={{ display: 'grid', gap: '4px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
+                            <span>字号大小</span>
+                            <output>{pageLayoutSettings.brandSubtitleFontSize}px</output>
+                          </div>
+                          <input
+                            type="range"
+                            min={10}
+                            max={24}
+                            step={1}
+                            value={pageLayoutSettings.brandSubtitleFontSize}
+                            onChange={(e) =>
+                              onPageLayoutSettingsChange((prev) => ({ ...prev, brandSubtitleFontSize: Number(e.target.value) }))
+                            }
+                          />
+                        </label>
+                        <label style={{ display: 'grid', gap: '4px' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>颜色</span>
+                          <input
+                            type="color"
+                            value={pageLayoutSettings.brandSubtitleColor.startsWith('#') ? pageLayoutSettings.brandSubtitleColor : '#94a3b8'}
+                            onChange={(e) =>
+                              onPageLayoutSettingsChange((prev) => ({ ...prev, brandSubtitleColor: e.target.value }))
+                            }
+                            style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {pageLayoutSettings.showBrandSubtitle && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-                    {/* 行 1：副标题文本输入框独立一行 */}
-                    <label style={{ display: 'grid', gap: '4px', width: '100%' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>副标题文本</span>
+              </div>
+
+              {/* 1. 顶栏时钟设置 */}
+              <div className="setting-group" style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label className="checkbox-label" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', width: 'fit-content' }}>
+                    <input
+                      type="checkbox"
+                      checked={pageLayoutSettings.showClock}
+                      onChange={(e) =>
+                        onPageLayoutSettingsChange((prev) => ({ ...prev, showClock: e.target.checked }))
+                      }
+                    />
+                    <span>显示时钟</span>
+                  </label>
+                  <small style={{ fontSize: '0.75rem', color: 'rgba(226, 232, 240, 0.5)' }}>(手机端自动隐藏)</small>
+                </div>
+                {pageLayoutSettings.showClock && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
+                        <span>时钟字号</span>
+                        <output>{pageLayoutSettings.clockFontSize}px</output>
+                      </div>
                       <input
-                        type="text"
-                        value={pageLayoutSettings.brandSubtitle}
+                        type="range"
+                        min={14}
+                        max={36}
+                        step={1}
+                        value={pageLayoutSettings.clockFontSize}
                         onChange={(e) =>
-                          onPageLayoutSettingsChange((prev) => ({ ...prev, brandSubtitle: e.target.value }))
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, clockFontSize: Number(e.target.value) }))
                         }
-                        style={{ height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.4)', color: '#fff', outline: 'none', fontSize: '0.85rem' }}
                       />
                     </label>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>颜色</span>
+                      <input
+                        type="color"
+                        value={pageLayoutSettings.clockColor.startsWith('#') ? pageLayoutSettings.clockColor : '#f8fafc'}
+                        onChange={(e) =>
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, clockColor: e.target.value }))
+                        }
+                        style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
 
-                    {/* 行 2：字号大小与颜色换行显示 */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: '12px', alignItems: 'center' }}>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
-                          <span>字号大小</span>
-                          <output>{pageLayoutSettings.brandSubtitleFontSize}px</output>
-                        </div>
-                        <input
-                          type="range"
-                          min={10}
-                          max={24}
-                          step={1}
-                          value={pageLayoutSettings.brandSubtitleFontSize}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, brandSubtitleFontSize: Number(e.target.value) }))
-                          }
-                        />
-                      </label>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>颜色</span>
-                        <input
-                          type="color"
-                          value={pageLayoutSettings.brandSubtitleColor.startsWith('#') ? pageLayoutSettings.brandSubtitleColor : '#94a3b8'}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, brandSubtitleColor: e.target.value }))
-                          }
-                          style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
-                        />
-                      </label>
-                    </div>
+              {/* 2. 顶栏日期设置 */}
+              <div className="setting-group" style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label className="checkbox-label" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', width: 'fit-content' }}>
+                    <input
+                      type="checkbox"
+                      checked={pageLayoutSettings.showDate}
+                      onChange={(e) =>
+                        onPageLayoutSettingsChange((prev) => ({ ...prev, showDate: e.target.checked }))
+                      }
+                    />
+                    <span>显示日期与农历</span>
+                  </label>
+                  <small style={{ fontSize: '0.75rem', color: 'rgba(226, 232, 240, 0.5)' }}>(手机端自动隐藏)</small>
+                </div>
+                {pageLayoutSettings.showDate && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
+                        <span>日期字号</span>
+                        <output>{pageLayoutSettings.dateFontSize}px</output>
+                      </div>
+                      <input
+                        type="range"
+                        min={10}
+                        max={20}
+                        step={1}
+                        value={pageLayoutSettings.dateFontSize}
+                        onChange={(e) =>
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, dateFontSize: Number(e.target.value) }))
+                        }
+                      />
+                    </label>
+                    <label style={{ display: 'grid', gap: '4px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>颜色</span>
+                      <input
+                        type="color"
+                        value={pageLayoutSettings.dateColor.startsWith('#') ? pageLayoutSettings.dateColor : '#94a3b8'}
+                        onChange={(e) =>
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, dateColor: e.target.value }))
+                        }
+                        style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
+                      />
+                    </label>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* 子选项卡 2：分类设置 */}
+          {/* 子选项卡 2：分组与搜索设置 */}
           {pageTab === 'category' && (
-            <div className="settings-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
-              <div className="setting-group">
-                <label>
-                  <span>左右边距</span>
-                  <output>{pageLayoutSettings.categoryPaddingX}px</output>
-                </label>
-                <input
-                  type="range"
-                  min={0}
-                  max={200}
-                  step={2}
-                  value={pageLayoutSettings.categoryPaddingX}
-                  onChange={(e) =>
-                    onPageLayoutSettingsChange((prev) => ({ ...prev, categoryPaddingX: Number(e.target.value) }))
-                  }
-                />
-              </div>
-
-              <div className="setting-group">
-                <label>
-                  <span>顶部边距</span>
-                  <output>{pageLayoutSettings.categoryMarginTop}px</output>
-                </label>
-                <input
-                  type="range"
-                  min={0}
-                  max={80}
-                  step={1}
-                  value={pageLayoutSettings.categoryMarginTop}
-                  onChange={(e) =>
-                    onPageLayoutSettingsChange((prev) => ({ ...prev, categoryMarginTop: Number(e.target.value) }))
-                  }
-                />
-              </div>
-
-              <div className="setting-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="setting-label">分类位置排列</span>
-                  {pageLayoutSettings.showSearchBar && (
-                    <small style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
-                      (开启搜索框时，分类位置限定为居左或居右)
-                    </small>
-                  )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="settings-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
+                <div className="setting-group">
+                  <label>
+                    <span>左右边距</span>
+                    <output>{pageLayoutSettings.categoryPaddingX}px</output>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={200}
+                    step={2}
+                    value={pageLayoutSettings.categoryPaddingX}
+                    onChange={(e) =>
+                      onPageLayoutSettingsChange((prev) => ({ ...prev, categoryPaddingX: Number(e.target.value) }))
+                    }
+                  />
                 </div>
-                <div className="mode-switch" style={{ width: pageLayoutSettings.showSearchBar ? '180px' : '240px', gridTemplateColumns: pageLayoutSettings.showSearchBar ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))' }}>
-                  <button
-                    type="button"
-                    className={pageLayoutSettings.categoryAlign === 'flex-start' ? 'mode-button active' : 'mode-button'}
-                    onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, categoryAlign: 'flex-start' }))}
-                  >
-                    居左
-                  </button>
-                  {!pageLayoutSettings.showSearchBar && (
+
+                <div className="setting-group">
+                  <label>
+                    <span>顶部边距</span>
+                    <output>{pageLayoutSettings.categoryMarginTop}px</output>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={80}
+                    step={1}
+                    value={pageLayoutSettings.categoryMarginTop}
+                    onChange={(e) =>
+                      onPageLayoutSettingsChange((prev) => ({ ...prev, categoryMarginTop: Number(e.target.value) }))
+                    }
+                  />
+                </div>
+
+                <div className="setting-group" style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span className="setting-label">分组位置排列</span>
+                    {pageLayoutSettings.showSearchBar && (
+                      <small style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
+                        (开启搜索框时，分类位置限定为居左或居右)
+                      </small>
+                    )}
+                  </div>
+                  <div className="mode-switch" style={{ width: pageLayoutSettings.showSearchBar ? '180px' : '240px', gridTemplateColumns: pageLayoutSettings.showSearchBar ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))' }}>
                     <button
                       type="button"
-                      className={pageLayoutSettings.categoryAlign === 'center' ? 'mode-button active' : 'mode-button'}
-                      onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, categoryAlign: 'center' }))}
+                      className={pageLayoutSettings.categoryAlign === 'flex-start' ? 'mode-button active' : 'mode-button'}
+                      onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, categoryAlign: 'flex-start' }))}
                     >
-                      居中
+                      居左
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className={pageLayoutSettings.categoryAlign === 'flex-end' ? 'mode-button active' : 'mode-button'}
-                    onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, categoryAlign: 'flex-end' }))}
-                  >
-                    居右
-                  </button>
+                    {!pageLayoutSettings.showSearchBar && (
+                      <button
+                        type="button"
+                        className={pageLayoutSettings.categoryAlign === 'center' ? 'mode-button active' : 'mode-button'}
+                        onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, categoryAlign: 'center' }))}
+                      >
+                        居中
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={pageLayoutSettings.categoryAlign === 'flex-end' ? 'mode-button active' : 'mode-button'}
+                      onClick={() => onPageLayoutSettingsChange((prev) => ({ ...prev, categoryAlign: 'flex-end' }))}
+                    >
+                      居右
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 搜索框与分组胶囊玻璃设置 */}
+              <div className="setting-group">
+                <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc', display: 'block', marginBottom: '12px' }}>
+                  搜索框与分组胶囊设置 (手机端自动隐藏搜索框)
+                </span>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+                  {/* 行 1：开启分组栏 (左) + 一键为分组配色 & 一键透明 (右) */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={pageLayoutSettings.showCategories ?? true}
+                        onChange={(e) =>
+                          onPageLayoutSettingsChange((prev) => ({ ...prev, showCategories: e.target.checked }))
+                        }
+                      />
+                      <span>开启分组栏</span>
+                    </label>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextIdx = (groupPaletteIdx + 1) % GROUP_PALETTES.length
+                          setGroupPaletteIdx(nextIdx)
+                          const palette = GROUP_PALETTES[nextIdx]
+                          const newGroupColors: Record<string, string> = {}
+                          groups.forEach((g, idx) => {
+                            newGroupColors[g] = palette.colors[idx % palette.colors.length]
+                          })
+                          onPageLayoutSettingsChange((prev) => ({
+                            ...prev,
+                            groupColors: newGroupColors,
+                          }))
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '5px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(168, 85, 247, 0.45)',
+                          background: 'rgba(168, 85, 247, 0.2)',
+                          color: '#c084fc',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                        title="点击切换分组配色方案（马卡龙、北欧、莫兰迪、赛博等），点一次换一种"
+                      >
+                        🎨 一键为分组配色 ({GROUP_PALETTES[groupPaletteIdx % GROUP_PALETTES.length].name})
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPageLayoutSettingsChange((prev) => ({
+                            ...prev,
+                            groupColors: {},
+                          }))
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '5px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255, 255, 255, 0.22)',
+                          background: 'rgba(255, 255, 255, 0.12)',
+                          color: '#e2e8f0',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                        title="一键清除分组自定义颜色，恢复透亮风格"
+                      >
+                        💧 一键透明
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 行 2：开启居中搜索框 (左) + 默认搜索引擎 (右) */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.88rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={pageLayoutSettings.showSearchBar}
+                        onChange={(e) => {
+                          const enabled = e.target.checked
+                          onPageLayoutSettingsChange((prev) => ({
+                            ...prev,
+                            showSearchBar: enabled,
+                            categoryAlign: enabled && prev.categoryAlign === 'center' ? 'flex-start' : prev.categoryAlign,
+                          }))
+                        }}
+                      />
+                      <span>开启居中搜索框</span>
+                    </label>
+
+                    {pageLayoutSettings.showSearchBar && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)', whiteSpace: 'nowrap' }}>默认搜索引擎</span>
+                        <select
+                          value={pageLayoutSettings.defaultSearchEngine}
+                          onChange={(e) =>
+                            onPageLayoutSettingsChange((prev) => ({ ...prev, defaultSearchEngine: e.target.value }))
+                          }
+                          style={{ height: '32px', padding: '0 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.8)', color: '#fff', fontSize: '0.82rem' }}
+                        >
+                          <option value="baidu">百度 (Baidu)</option>
+                          <option value="bing">必应 (Bing)</option>
+                          <option value="google">Google</option>
+                          <option value="sogou">搜狗 (Sogou)</option>
+                          <option value="github">GitHub</option>
+                        </select>
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <div>
+                    <label htmlFor="searchbar-blur" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                      <span>背景高斯模糊</span>
+                      <output style={{ color: '#38bdf8' }}>{pageLayoutSettings.searchBarBlur ?? 20}px</output>
+                    </label>
+                    <input
+                      id="searchbar-blur"
+                      type="range"
+                      min={0}
+                      max={40}
+                      step={1}
+                      value={pageLayoutSettings.searchBarBlur ?? 20}
+                      onChange={(e) =>
+                        onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarBlur: Number(e.target.value) }))
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="searchbar-opacity" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                      <span>玻璃不透明度</span>
+                      <output style={{ color: '#38bdf8' }}>{(pageLayoutSettings.searchBarOpacity ?? 0.45).toFixed(2)}</output>
+                    </label>
+                    <input
+                      id="searchbar-opacity"
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={pageLayoutSettings.searchBarOpacity ?? 0.45}
+                      onChange={(e) =>
+                        onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarOpacity: Number(e.target.value) }))
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="searchbar-edge" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                      <span>边缘高光</span>
+                      <output style={{ color: '#38bdf8' }}>{(pageLayoutSettings.searchBarEdgeHighlight ?? 0.28).toFixed(2)}</output>
+                    </label>
+                    <input
+                      id="searchbar-edge"
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={pageLayoutSettings.searchBarEdgeHighlight ?? 0.28}
+                      onChange={(e) =>
+                        onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarEdgeHighlight: Number(e.target.value) }))
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1407,206 +1592,123 @@ export function SettingsPanel({
             </div>
           )}
 
-          {/* 子选项卡 4：时间与搜索框独立卡片 */}
-          {pageTab === 'widgets' && (
-            <div className="settings-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)', gap: '16px' }}>
-              {/* 1. 顶栏时间与日期设置 */}
-              <div className="setting-group" style={{ padding: '12px 14px', borderRadius: '14px', background: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc', display: 'block', marginBottom: '10px' }}>
-                  顶栏时间与日期设置 (手机端自动隐藏)
-                </span>
-
-                {/* 时钟设置 */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                    <input
-                      type="checkbox"
-                      checked={pageLayoutSettings.showClock}
-                      onChange={(e) =>
-                        onPageLayoutSettingsChange((prev) => ({ ...prev, showClock: e.target.checked }))
-                      }
-                    />
-                    <span>显示时钟</span>
-                  </label>
-                  {pageLayoutSettings.showClock && (
-                    <>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
-                          <span>时钟字号</span>
-                          <output>{pageLayoutSettings.clockFontSize}px</output>
-                        </div>
-                        <input
-                          type="range"
-                          min={14}
-                          max={36}
-                          step={1}
-                          value={pageLayoutSettings.clockFontSize}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, clockFontSize: Number(e.target.value) }))
-                          }
-                        />
-                      </label>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>时钟颜色</span>
-                        <input
-                          type="color"
-                          value={pageLayoutSettings.clockColor.startsWith('#') ? pageLayoutSettings.clockColor : '#f8fafc'}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, clockColor: e.target.value }))
-                          }
-                          style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
-                        />
-                      </label>
-                    </>
-                  )}
-                </div>
-
-                {/* 日期设置 */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: '12px', alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                    <input
-                      type="checkbox"
-                      checked={pageLayoutSettings.showDate}
-                      onChange={(e) =>
-                        onPageLayoutSettingsChange((prev) => ({ ...prev, showDate: e.target.checked }))
-                      }
-                    />
-                    <span>显示日期</span>
-                  </label>
-                  {pageLayoutSettings.showDate && (
-                    <>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>
-                          <span>日期字号</span>
-                          <output>{pageLayoutSettings.dateFontSize}px</output>
-                        </div>
-                        <input
-                          type="range"
-                          min={10}
-                          max={20}
-                          step={1}
-                          value={pageLayoutSettings.dateFontSize}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, dateFontSize: Number(e.target.value) }))
-                          }
-                        />
-                      </label>
-                      <label style={{ display: 'grid', gap: '4px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>日期颜色</span>
-                        <input
-                          type="color"
-                          value={pageLayoutSettings.dateColor.startsWith('#') ? pageLayoutSettings.dateColor : '#94a3b8'}
-                          onChange={(e) =>
-                            onPageLayoutSettingsChange((prev) => ({ ...prev, dateColor: e.target.value }))
-                          }
-                          style={{ height: '32px', width: '100%', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', cursor: 'pointer' }}
-                        />
-                      </label>
-                    </>
-                  )}
+          {/* 子选项卡 4：卡片风格设置 */}
+          {pageTab === 'glass' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="glass-preview-wrap">
+                <div
+                  className="glass-preview-stage"
+                  style={{
+                    backgroundImage: currentWallpaper ? `url("${currentWallpaper}")` : undefined,
+                  }}
+                >
+                  <div
+                    className="glass-preview-card"
+                    style={{
+                      borderRadius: `${normalSettings.cornerRadius}px`,
+                      backgroundColor: `rgba(255, 255, 255, ${normalSettings.opacity * 0.35})`,
+                      backdropFilter: `blur(${normalSettings.blur}px)`,
+                      WebkitBackdropFilter: `blur(${normalSettings.blur}px)`,
+                      border: `1px solid rgba(255, 255, 255, ${normalSettings.edgeHighlight * 0.8})`,
+                      boxShadow: `0 8px 32px rgba(0, 0, 0, 0.25)`,
+                    }}
+                  >
+                    <div className="site-card">
+                      <div className="site-icon" style={{ color: '#38bdf8' }}>栖</div>
+                      <div className="site-body">
+                        <h4>示例网站</h4>
+                        {!pageLayoutSettings.hideCardDescription && <p>example.com</p>}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* 2. 分类栏搜索框设置 */}
-              <div className="setting-group" style={{ padding: '12px 14px', borderRadius: '14px', background: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc', display: 'block', marginBottom: '10px' }}>
-                  分类栏搜索框设置 (手机端自动隐藏)
-                </span>
+              <div className="settings-grid glass-settings-grid">
+                <div className="setting-group">
+                  <label htmlFor="normal-blur">
+                    <span>背景高斯模糊</span>
+                    <output>{normalSettings.blur}px</output>
+                  </label>
+                  <input
+                    id="normal-blur"
+                    type="range"
+                    min={0}
+                    max={40}
+                    step={1}
+                    value={normalSettings.blur}
+                    onChange={(e) => updateNormalGlass('blur', Number(e.target.value))}
+                  />
+                </div>
+                <div className="setting-group">
+                  <label htmlFor="normal-opacity">
+                    <span>玻璃不透明度</span>
+                    <output>{normalSettings.opacity.toFixed(2)}</output>
+                  </label>
+                  <input
+                    id="normal-opacity"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={normalSettings.opacity}
+                    onChange={(e) => updateNormalGlass('opacity', Number(e.target.value))}
+                  />
+                </div>
+                <div className="setting-group">
+                  <label htmlFor="normal-radius">
+                    <span>卡片圆角</span>
+                    <output>{normalSettings.cornerRadius}px</output>
+                  </label>
+                  <input
+                    id="normal-radius"
+                    type="range"
+                    min={0}
+                    max={80}
+                    step={1}
+                    value={normalSettings.cornerRadius}
+                    onChange={(e) => updateNormalGlass('cornerRadius', Number(e.target.value))}
+                  />
+                </div>
+                <div className="setting-group">
+                  <label htmlFor="normal-edge">
+                    <span>边缘高光</span>
+                    <output>{normalSettings.edgeHighlight.toFixed(2)}</output>
+                  </label>
+                  <input
+                    id="normal-edge"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={normalSettings.edgeHighlight}
+                    onChange={(e) => updateNormalGlass('edgeHighlight', Number(e.target.value))}
+                  />
+                </div>
+              </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px', alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.88rem' }}>
+              {/* 隐藏卡片副标题 / 描述 开关 */}
+              <div className="setting-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span className="setting-label" style={{ fontWeight: 600, color: '#f8fafc', display: 'block' }}>
+                      隐藏卡片副标题 / 描述
+                    </span>
+                    <small style={{ fontSize: '0.78rem', color: 'rgba(226, 232, 240, 0.6)', marginTop: '2px', display: 'block' }}>
+                      开启后隐藏网站简介，仅保留图标与标题，呈现极致极简的迷你微型网格阵列
+                    </small>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
                     <input
                       type="checkbox"
-                      checked={pageLayoutSettings.showSearchBar}
-                      onChange={(e) => {
-                        const enabled = e.target.checked
-                        onPageLayoutSettingsChange((prev) => ({
-                          ...prev,
-                          showSearchBar: enabled,
-                          categoryAlign: enabled && prev.categoryAlign === 'center' ? 'flex-start' : prev.categoryAlign,
-                        }))
-                      }}
+                      checked={pageLayoutSettings.hideCardDescription ?? false}
+                      onChange={(e) =>
+                        onPageLayoutSettingsChange((prev) => ({ ...prev, hideCardDescription: e.target.checked }))
+                      }
                     />
-                    <span>开启分类栏居中搜索框</span>
+                    <span>隐藏描述</span>
                   </label>
-
-                  {pageLayoutSettings.showSearchBar && (
-                    <label style={{ display: 'grid', gap: '4px' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'rgba(226,232,240,0.7)' }}>默认搜索引擎</span>
-                      <select
-                        value={pageLayoutSettings.defaultSearchEngine}
-                        onChange={(e) =>
-                          onPageLayoutSettingsChange((prev) => ({ ...prev, defaultSearchEngine: e.target.value }))
-                        }
-                        style={{ height: '36px', padding: '0 8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15,23,42,0.8)', color: '#fff', fontSize: '0.82rem' }}
-                      >
-                        <option value="baidu">百度 (Baidu)</option>
-                        <option value="bing">必应 (Bing)</option>
-                        <option value="google">Google</option>
-                        <option value="sogou">搜狗 (Sogou)</option>
-                        <option value="github">GitHub</option>
-                      </select>
-                    </label>
-                  )}
                 </div>
-
-                {pageLayoutSettings.showSearchBar && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                    <div className="setting-group" style={{ marginBottom: 0 }}>
-                      <label htmlFor="searchbar-blur" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
-                        <span>背景高斯模糊</span>
-                        <output style={{ color: '#38bdf8' }}>{pageLayoutSettings.searchBarBlur ?? 20}px</output>
-                      </label>
-                      <input
-                        id="searchbar-blur"
-                        type="range"
-                        min={0}
-                        max={40}
-                        step={1}
-                        value={pageLayoutSettings.searchBarBlur ?? 20}
-                        onChange={(e) =>
-                          onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarBlur: Number(e.target.value) }))
-                        }
-                      />
-                    </div>
-
-                    <div className="setting-group" style={{ marginBottom: 0 }}>
-                      <label htmlFor="searchbar-opacity" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
-                        <span>玻璃不透明度</span>
-                        <output style={{ color: '#38bdf8' }}>{(pageLayoutSettings.searchBarOpacity ?? 0.45).toFixed(2)}</output>
-                      </label>
-                      <input
-                        id="searchbar-opacity"
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={pageLayoutSettings.searchBarOpacity ?? 0.45}
-                        onChange={(e) =>
-                          onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarOpacity: Number(e.target.value) }))
-                        }
-                      />
-                    </div>
-
-                    <div className="setting-group" style={{ marginBottom: 0 }}>
-                      <label htmlFor="searchbar-edge" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
-                        <span>边缘高光</span>
-                        <output style={{ color: '#38bdf8' }}>{(pageLayoutSettings.searchBarEdgeHighlight ?? 0.28).toFixed(2)}</output>
-                      </label>
-                      <input
-                        id="searchbar-edge"
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={pageLayoutSettings.searchBarEdgeHighlight ?? 0.28}
-                        onChange={(e) =>
-                          onPageLayoutSettingsChange((prev) => ({ ...prev, searchBarEdgeHighlight: Number(e.target.value) }))
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1747,54 +1849,7 @@ export function SettingsPanel({
         </div>
       </section>
 
-      <section className="settings-section" hidden={settingsCategory !== 'account'} style={{ height: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '380px' }}>
-          {typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id ? (
-            <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#4ade80' }}>
-                  模式：浏览器新标签页插件模式
-                </span>
-                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', fontWeight: 600 }}>
-                  免登录 · 本地存储
-                </span>
-              </div>
-              <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.75)', lineHeight: 1.5, display: 'block' }}>
-                您正运行在 Chrome / Edge / Firefox 扩展新标签页模式下，所有网址卡片与视觉配置将自动持久化保存在当前浏览器中。如需跨设备同步，可使用“数据备份与还原”模块导出导入 JSON / ZIP 备份文件。
-              </small>
-            </div>
-          ) : (
-            <>
-              {/* 上部分：系统管理员账号卡片 */}
-              <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#38bdf8' }}>
-                    当前系统账号：{currentUser.username}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', fontWeight: 600 }}>
-                    系统管理员
-                  </span>
-                </div>
-                <small style={{ fontSize: '0.8rem', color: 'rgba(226, 232, 240, 0.7)', lineHeight: 1.5, display: 'block' }}>
-                  管理员账号的用户名和密码由部署环境变量 (<code style={{ color: '#38bdf8' }}>ADMIN_USER / ADMIN_PASSWORD</code>) 设定。
-                </small>
-              </div>
 
-              {/* 底部分：退出登录按键移动至最下方 */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', marginTop: 'auto' }}>
-                <button
-                  type="button"
-                  className="action-button primary"
-                  onClick={onLogout}
-                  style={{ background: 'rgba(239, 68, 68, 0.85)', color: '#fff', borderColor: 'transparent', padding: '10px 24px', borderRadius: '12px' }}
-                >
-                  退出登录
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
 
       <section className="settings-section" hidden={settingsCategory !== 'backup'}>
         <div style={{ display: 'grid', gap: '14px', width: '100%', maxHeight: '460px', overflowY: 'auto', paddingRight: '4px' }}>

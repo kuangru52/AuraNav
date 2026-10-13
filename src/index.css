@@ -296,6 +296,27 @@ button {
   color: rgba(226, 232, 240, 0.45);
 }
 
+.search-clear-btn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(226, 232, 240, 0.7);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.search-clear-btn:hover {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.65);
+  transform: scale(1.08);
+}
+
 .search-submit-btn {
   display: grid;
   place-items: center;
@@ -318,9 +339,9 @@ button {
 .settings-panel {
   position: fixed;
   display: grid;
-  grid-template-columns: 164px minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  column-gap: 24px;
+  column-gap: 20px;
   top: 86px;
   left: 50%;
   width: min(1120px, calc(100vw - 48px));
@@ -388,10 +409,10 @@ button {
   min-width: 0;
   border: 1px solid transparent;
   border-radius: 12px;
-  padding: 8px 16px;
+  padding: 8px 10px;
   background: transparent;
   color: rgba(226, 232, 240, 0.72);
-  text-align: left;
+  text-align: center;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
@@ -446,11 +467,7 @@ button {
   top: 0;
   z-index: 10;
   margin-bottom: 16px;
-  padding-top: 4px;
-  padding-bottom: 8px;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
 }
 
 .glass-preview-label {
@@ -468,11 +485,12 @@ button {
   min-height: 120px;
   overflow: hidden;
   padding: 16px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: rgba(15, 23, 42, 0.6);
   background-position: center;
   background-size: cover;
+  box-shadow: none;
 }
 
 .glass-preview-stage::before {
@@ -737,6 +755,12 @@ button {
   margin-bottom: 8px;
   color: rgba(226, 232, 240, 0.8);
   font-size: 0.82rem;
+}
+
+.setting-group label.checkbox-label,
+.setting-group label:has(input[type='checkbox']) {
+  justify-content: flex-start !important;
+  width: fit-content;
 }
 
 .setting-label {
