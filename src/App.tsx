@@ -1677,18 +1677,21 @@ function App() {
             groups={groups}
             storedIcons={storedIcons}
             onRestoreData={(data) => {
-              const currentGroups = data.groups && Array.isArray(data.groups) && data.groups.length > 0 ? data.groups : groups
-              if (data.groups) setGroups(data.groups)
+              let restoredGroups = data.groups && Array.isArray(data.groups) && data.groups.length > 0 ? [...data.groups] : [...groups]
+
               if (data.cards && Array.isArray(data.cards)) {
-                const fallbackGroup = currentGroups[0] || '开发'
-                const sanitizedCards = data.cards.map((c: SiteCard) => {
-                  if (!c.category || (!currentGroups.includes(c.category) && c.category !== '全部')) {
-                    return { ...c, category: fallbackGroup }
+                // 恢复数据时：若卡片原本的分组不存在，系统自动创建补全该分组，绝不丢卡、丢分类！
+                data.cards.forEach((c: SiteCard) => {
+                  const cat = c.category?.trim()
+                  if (cat && cat !== '全部' && !restoredGroups.includes(cat)) {
+                    restoredGroups.push(cat)
                   }
-                  return c
                 })
-                setCards(sanitizedCards)
+                setCards(data.cards)
               }
+
+              setGroups(restoredGroups)
+
               if (data.normalSettings) setNormalSettings(data.normalSettings)
               if (data.pageLayoutSettings) setPageLayoutSettings(data.pageLayoutSettings)
               if (data.wallpaperSettings) setWallpaperSettings(data.wallpaperSettings)
