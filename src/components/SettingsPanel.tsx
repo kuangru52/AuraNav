@@ -258,7 +258,14 @@ export function SettingsPanel({
           <button
             type="button"
             className="action-button"
-            onClick={onLogout}
+            onClick={() => {
+              const isExt = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id
+              if (isExt) {
+                alert('扩展插件模式已开启免密极速授权，无需退出登录。')
+                return
+              }
+              onLogout()
+            }}
             title="退出登录"
             style={{
               cursor: 'pointer',

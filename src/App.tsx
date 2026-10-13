@@ -1208,9 +1208,11 @@ function App() {
                   paddingLeft: `${pageLayoutSettings.categoryPaddingX}px`,
                   paddingRight: `${pageLayoutSettings.categoryPaddingX}px`,
                   marginTop: `${pageLayoutSettings.categoryMarginTop}px`,
-                  justifyContent: pageLayoutSettings.showSearchBar && pageLayoutSettings.categoryAlign === 'center'
-                    ? 'flex-start'
-                    : pageLayoutSettings.categoryAlign,
+                  justifyContent: pageLayoutSettings.showCategories === false && pageLayoutSettings.showSearchBar
+                    ? 'center'
+                    : pageLayoutSettings.showSearchBar && pageLayoutSettings.categoryAlign === 'center'
+                      ? 'flex-start'
+                      : pageLayoutSettings.categoryAlign,
                 }}
               >
                 {/* 固定与自定义分组列表 */}
@@ -1462,8 +1464,8 @@ function App() {
           <div
             className="context-menu-panel group-context-menu"
             style={{
-              top: `${Math.min(groupContextMenu.y, window.innerHeight - 100)}px`,
-              left: `${Math.min(groupContextMenu.x, window.innerWidth - 120)}px`,
+              top: `${Math.max(10, Math.min(groupContextMenu.y, window.innerHeight - 100))}px`,
+              left: `${Math.max(10, Math.min(groupContextMenu.x, window.innerWidth - 120))}px`,
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1584,8 +1586,8 @@ function App() {
           <div
             className="context-menu-panel card-context-menu"
             style={{
-              top: `${Math.min(cardContextMenu.y, window.innerHeight - 100)}px`,
-              left: `${Math.min(cardContextMenu.x, window.innerWidth - 120)}px`,
+              top: `${Math.max(10, Math.min(cardContextMenu.y, window.innerHeight - 100))}px`,
+              left: `${Math.max(10, Math.min(cardContextMenu.x, window.innerWidth - 120))}px`,
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1675,8 +1677,18 @@ function App() {
             groups={groups}
             storedIcons={storedIcons}
             onRestoreData={(data) => {
-              if (data.cards) setCards(data.cards)
+              const currentGroups = data.groups && Array.isArray(data.groups) && data.groups.length > 0 ? data.groups : groups
               if (data.groups) setGroups(data.groups)
+              if (data.cards && Array.isArray(data.cards)) {
+                const fallbackGroup = currentGroups[0] || '开发'
+                const sanitizedCards = data.cards.map((c: SiteCard) => {
+                  if (!c.category || (!currentGroups.includes(c.category) && c.category !== '全部')) {
+                    return { ...c, category: fallbackGroup }
+                  }
+                  return c
+                })
+                setCards(sanitizedCards)
+              }
               if (data.normalSettings) setNormalSettings(data.normalSettings)
               if (data.pageLayoutSettings) setPageLayoutSettings(data.pageLayoutSettings)
               if (data.wallpaperSettings) setWallpaperSettings(data.wallpaperSettings)
