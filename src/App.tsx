@@ -935,14 +935,13 @@ function App() {
     }
   }
 
-  // 分组右键菜单回调
+  // 分组右键菜单回调 (【全部】胶囊也可右键，但仅有编辑选项，无删除选项)
   const handleGroupContextMenu = (event: React.MouseEvent, category: string) => {
-    if (category === '全部') return
     event.preventDefault()
     event.stopPropagation()
     setGroupContextMenu({
-      x: Math.min(event.clientX, window.innerWidth - 150),
-      y: Math.min(event.clientY, window.innerHeight - 120),
+      x: Math.min(event.clientX, window.innerWidth - 120),
+      y: Math.min(event.clientY, window.innerHeight - 100),
       category,
     })
   }
@@ -1221,14 +1220,25 @@ function App() {
                   const pillEdge = pageLayoutSettings.searchBarEdgeHighlight ?? 0.28
                   const isAllActive = selectedCategory === '全部'
 
+                  const allPillColor = pageLayoutSettings.groupColors?.['全部'] || ''
+                  const hasAllCustomColor = !!allPillColor
+
                   const allPillStyle: React.CSSProperties = {
                     backdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
                     WebkitBackdropFilter: pillBlur > 0 ? `blur(${pillBlur}px) saturate(160%)` : 'none',
                     background: isAllActive
-                      ? `linear-gradient(135deg, rgba(191, 219, 254, ${Math.min(0.85, pillOpacity + 0.15)}), rgba(255, 255, 255, ${Math.min(0.5, pillOpacity * 0.6)}))`
-                      : `rgba(15, 23, 42, ${pillOpacity})`,
-                    border: `1px solid rgba(255, 255, 255, ${isAllActive ? Math.min(1, pillEdge + 0.35) : pillEdge})`,
-                    boxShadow: `inset 0 1px 0 rgba(255, 255, 255, ${Math.min(1, pillEdge * 0.7)}), 0 5px 14px rgba(15, 23, 42, ${Math.min(0.5, pillOpacity * 0.5)})`,
+                      ? (hasAllCustomColor
+                          ? `linear-gradient(135deg, ${allPillColor}, ${allPillColor}88)`
+                          : `linear-gradient(135deg, rgba(191, 219, 254, ${Math.min(0.85, pillOpacity + 0.15)}), rgba(255, 255, 255, ${Math.min(0.5, pillOpacity * 0.6)}))` )
+                      : (hasAllCustomColor
+                          ? (allPillColor.startsWith('#') ? `${allPillColor}38` : allPillColor)
+                          : `rgba(15, 23, 42, ${pillOpacity})`),
+                    border: `1px solid ${hasAllCustomColor
+                      ? (allPillColor.startsWith('#') ? `${allPillColor}a0` : allPillColor)
+                      : (isAllActive ? `rgba(255, 255, 255, ${Math.min(1, pillEdge + 0.35)})` : `rgba(255, 255, 255, ${pillEdge})`)}`,
+                    boxShadow: isAllActive && hasAllCustomColor
+                      ? `0 0 16px ${allPillColor.startsWith('#') ? `${allPillColor}80` : allPillColor}`
+                      : `inset 0 1px 0 rgba(255, 255, 255, ${Math.min(1, pillEdge * 0.7)}), 0 5px 14px rgba(15, 23, 42, ${Math.min(0.5, pillOpacity * 0.5)})`,
                   }
 
                   const addBtnStyle: React.CSSProperties = {
@@ -1249,7 +1259,7 @@ function App() {
                               type="button"
                               className={isAllActive ? 'category-pill active' : 'category-pill'}
                               onClick={() => setSelectedCategory('全部')}
-                              onContextMenu={(e) => e.preventDefault()}
+                              onContextMenu={(e) => handleGroupContextMenu(e, '全部')}
                               style={allPillStyle}
                             >
                               全部
@@ -1477,22 +1487,24 @@ function App() {
               <span>编辑</span>
             </button>
 
-            <button
-              type="button"
-              className="context-menu-item danger"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => {
-                const cat = groupContextMenu.category
-                setGroupContextMenu(null)
-                confirmDeleteGroup(cat)
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
-              <span>删除</span>
-            </button>
+            {groupContextMenu.category !== '全部' && (
+              <button
+                type="button"
+                className="context-menu-item danger"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  const cat = groupContextMenu.category
+                  setGroupContextMenu(null)
+                  confirmDeleteGroup(cat)
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>删除</span>
+              </button>
+            )}
           </div>
         )}
 

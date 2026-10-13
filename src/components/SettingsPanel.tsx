@@ -1337,7 +1337,8 @@ export function SettingsPanel({
                           setGroupPaletteIdx(nextIdx)
                           const palette = GROUP_PALETTES[nextIdx]
                           const newGroupColors: Record<string, string> = {}
-                          groups.forEach((g, idx) => {
+                          const allGroupList = ['全部', ...groups.filter((g) => g !== '全部')]
+                          allGroupList.forEach((g, idx) => {
                             newGroupColors[g] = palette.colors[idx % palette.colors.length]
                           })
                           onPageLayoutSettingsChange((prev) => ({

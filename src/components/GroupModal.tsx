@@ -35,9 +35,10 @@ export function GroupModal({
   if (!isOpen) return null
 
   const isEditMode = !!editingGroup
+  const isSystemGroup = editingGroup === '全部'
   const trimmedName = newGroupName.trim()
   const isDuplicate = groups.includes(trimmedName) && trimmedName !== editingGroup
-  const isInvalid = !trimmedName || isDuplicate
+  const isInvalid = !isSystemGroup && (!trimmedName || isDuplicate)
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -50,33 +51,40 @@ export function GroupModal({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', margin: '16px 0' }}>
-          <label className="group-name-field" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.9)' }}>分组名称</span>
-            <input
-              autoFocus
-              value={newGroupName}
-              onChange={(event) => onGroupNameChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !isInvalid) onSave()
-              }}
-              placeholder="例如：常用工具"
-              style={{
-                height: '38px',
-                padding: '0 12px',
-                borderRadius: '10px',
-                border: isDuplicate ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(15, 23, 42, 0.6)',
-                color: '#fff',
-                fontSize: '0.88rem',
-                outline: 'none',
-              }}
-            />
-            {isDuplicate && (
-              <span style={{ fontSize: '0.75rem', color: '#fca5a5', marginTop: '2px' }}>
-                已存在同名分组，请换一个名称
-              </span>
-            )}
-          </label>
+          {/* 非【全部】系统分组才显示修改名称输入框 */}
+          {!isSystemGroup ? (
+            <label className="group-name-field" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(226, 232, 240, 0.9)' }}>分组名称</span>
+              <input
+                autoFocus
+                value={newGroupName}
+                onChange={(event) => onGroupNameChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !isInvalid) onSave()
+                }}
+                placeholder="例如：常用工具"
+                style={{
+                  height: '38px',
+                  padding: '0 12px',
+                  borderRadius: '10px',
+                  border: isDuplicate ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  color: '#fff',
+                  fontSize: '0.88rem',
+                  outline: 'none',
+                }}
+              />
+              {isDuplicate && (
+                <span style={{ fontSize: '0.75rem', color: '#fca5a5', marginTop: '2px' }}>
+                  已存在同名分组，请换一个名称
+                </span>
+              )}
+            </label>
+          ) : (
+            <div style={{ fontSize: '0.82rem', color: 'rgba(226, 232, 240, 0.75)', background: 'rgba(255, 255, 255, 0.08)', padding: '10px 12px', borderRadius: '10px', lineHeight: '1.4' }}>
+              ℹ️ 【全部】为系统默认保留分组，名称不可修改，仅支持设置胶囊外观色彩。
+            </div>
+          )}
 
           {/* 分组胶囊专属颜色选择器 */}
           {onGroupColorChange && (
