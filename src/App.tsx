@@ -1791,6 +1791,11 @@ function App() {
             }
 
             if (isShrunkAbove) {
+              const cardW = Math.max(180, pageLayoutSettings.cardHeight * 2.8)
+              const cardH = pageLayoutSettings.cardHeight
+              const shiftX = Math.round((cardW / 2) - 21)
+              const shiftY = Math.round((cardH / 2) - 21)
+
               return (
                 <div
                   style={{
@@ -1808,7 +1813,7 @@ function App() {
                     placeItems: 'center',
                     cursor: 'grabbing',
                     transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                    transform: 'scale(1.15)',
+                    transform: `translate(${shiftX}px, ${shiftY}px) scale(1.15)`,
                     overflow: 'hidden',
                   }}
                 >
