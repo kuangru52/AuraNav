@@ -14,6 +14,7 @@ type SortableGroupPillProps = {
   opacity?: number
   edgeHighlight?: number
   color?: string
+  dragOverGroup?: string | null
 }
 
 export function SortableGroupPill({
@@ -28,13 +29,14 @@ export function SortableGroupPill({
   opacity = 0.45,
   edgeHighlight = 0.28,
   color = '',
+  dragOverGroup = null,
 }: SortableGroupPillProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: category,
     disabled: !isEditing,
   })
 
-  const isActive = selectedCategory === category
+  const isActive = selectedCategory === category || dragOverGroup === category
   const pillColor = color || ''
   const hasCustomColor = !!pillColor
 
@@ -116,7 +118,7 @@ export function SortableGroupPill({
         {category}
       </button>
 
-      {/* 编辑模式下的删除分组按键 */}
+      {/* 编辑模式下的删除分组按键 (SVG 高精居中叉号) */}
       {isEditing && groupsCount > 1 && (
         <button
           type="button"
@@ -127,7 +129,10 @@ export function SortableGroupPill({
           }}
           aria-label={`删除分组 ${category}`}
         >
-          ×
+          <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <line x1="2" y1="2" x2="10" y2="10" />
+            <line x1="10" y1="2" x2="2" y2="10" />
+          </svg>
         </button>
       )}
     </span>

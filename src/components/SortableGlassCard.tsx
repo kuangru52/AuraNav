@@ -152,10 +152,13 @@ export const SortableGlassCard = React.memo(function SortableGlassCard({
         </div>
       </a>
 
-      {/* 4. 删除按钮 */}
+      {/* 4. 删除按钮 (SVG 高精居中叉号) */}
       {isEditing && (
         <button type="button" className="delete-button" onClick={() => onRemove(card.id)} aria-label={`删除 ${card.title}`}>
-          ×
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <line x1="2" y1="2" x2="10" y2="10" />
+            <line x1="10" y1="2" x2="2" y2="10" />
+          </svg>
         </button>
       )}
     </div>

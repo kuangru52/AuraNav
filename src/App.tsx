@@ -948,10 +948,12 @@ function App() {
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [isShrunkAbove, setIsShrunkAbove] = useState(false)
+  const [dragOverGroup, setDragOverGroup] = useState<string | null>(null)
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragId(String(event.active.id))
     setIsShrunkAbove(false)
+    setDragOverGroup(null)
   }
 
   const handleDragMove = (event: DragMoveEvent) => {
@@ -961,6 +963,12 @@ function App() {
 
     const overIdStr = event.over ? String(event.over.id) : ''
     const isOverGroup = groups.includes(overIdStr) || overIdStr === '全部'
+
+    if (isOverGroup) {
+      setDragOverGroup(overIdStr)
+    } else {
+      setDragOverGroup(null)
+    }
 
     let isAboveThreshold = false
     const floatingBarEl = document.querySelector('.floating-edit-card') || document.querySelector('.category-bar')
@@ -979,6 +987,7 @@ function App() {
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragId(null)
     setIsShrunkAbove(false)
+    setDragOverGroup(null)
 
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -1220,7 +1229,7 @@ function App() {
                   const pillBlur = pageLayoutSettings.searchBarBlur ?? 20
                   const pillOpacity = pageLayoutSettings.searchBarOpacity ?? 0.45
                   const pillEdge = pageLayoutSettings.searchBarEdgeHighlight ?? 0.28
-                  const isAllActive = selectedCategory === '全部'
+                  const isAllActive = selectedCategory === '全部' || dragOverGroup === '全部'
 
                   const allPillColor = pageLayoutSettings.groupColors?.['全部'] || ''
                   const hasAllCustomColor = !!allPillColor
@@ -1284,6 +1293,7 @@ function App() {
                                 opacity={pillOpacity}
                                 edgeHighlight={pillEdge}
                                 color={pageLayoutSettings.groupColors?.[category] || ''}
+                                dragOverGroup={dragOverGroup}
                               />
                             ))}
                           </SortableContext>
@@ -1317,6 +1327,7 @@ function App() {
             )}
 
             {/* 编辑模式下三大快捷功能悬浮独立卡片 */}
+            {/* 编辑模式下三大快捷功能按键 */}
             {isEditing && (
               <div
                 className="floating-edit-card"
@@ -1325,16 +1336,9 @@ function App() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '10px',
-                  padding: '8px 16px',
                   margin: '12px auto 0',
                   width: 'fit-content',
                   maxWidth: 'calc(100vw - 32px)',
-                  borderRadius: '16px',
-                  background: 'rgba(13, 20, 34, 0.82)',
-                  backdropFilter: 'blur(20px) saturate(160%)',
-                  WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-                  border: '1px solid rgba(168, 85, 247, 0.45)',
-                  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.45)',
                   zIndex: 25,
                   flexWrap: 'wrap',
                 }}
@@ -1343,7 +1347,14 @@ function App() {
                   type="button"
                   className="category-add-button"
                   onClick={handleFetchAllSiteFavicons}
-                  style={{ background: 'rgba(34, 197, 94, 0.18)', borderColor: 'rgba(34, 197, 94, 0.4)', color: '#4ade80' }}
+                  style={{
+                    background: 'rgba(34, 197, 94, 0.22)',
+                    borderColor: 'rgba(34, 197, 94, 0.5)',
+                    color: '#4ade80',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    boxShadow: '0 6px 16px rgba(15, 23, 42, 0.25)',
+                  }}
                   title={`自动批量拉取 ${selectedCategory === '全部' ? '所有分组' : `【${selectedCategory}】分组`} 未设置图标网站的官方图标`}
                 >
                   🌐 一键获取图标 ({selectedCategory})
@@ -1352,7 +1363,15 @@ function App() {
                   type="button"
                   className="category-add-button"
                   onClick={handleApplyColorPalette}
-                  style={{ background: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(168, 85, 247, 0.5)', color: '#c084fc', fontWeight: 600 }}
+                  style={{
+                    background: 'rgba(168, 85, 247, 0.24)',
+                    borderColor: 'rgba(168, 85, 247, 0.6)',
+                    color: '#c084fc',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    boxShadow: '0 6px 16px rgba(15, 23, 42, 0.25)',
+                  }}
                   title={`点击切换 ${selectedCategory === '全部' ? '所有分组' : `【${selectedCategory}】分组`} 卡片配色方案（马卡龙、莫兰蒂等）`}
                 >
                   🎨 一键配色 ({colorPalettes[currentPaletteIndex].name} - {selectedCategory})
@@ -1361,7 +1380,15 @@ function App() {
                   type="button"
                   className="category-add-button"
                   onClick={handleClearAllCardColors}
-                  style={{ background: 'rgba(255, 255, 255, 0.12)', borderColor: 'rgba(255, 255, 255, 0.3)', color: '#e2e8f0', fontWeight: 600 }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.16)',
+                    borderColor: 'rgba(255, 255, 255, 0.38)',
+                    color: '#e2e8f0',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    boxShadow: '0 6px 16px rgba(15, 23, 42, 0.25)',
+                  }}
                   title={`一键清除 ${selectedCategory === '全部' ? '所有分组' : `【${selectedCategory}】分组`} 卡片自定义配色，恢复透亮风格`}
                 >
                   💧 一键透明 ({selectedCategory})
