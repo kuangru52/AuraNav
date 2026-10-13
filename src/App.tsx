@@ -1450,71 +1450,48 @@ function App() {
         {/* 分组右键快捷菜单 */}
         {groupContextMenu && (
           <div
-            className="group-context-menu"
+            className="context-menu-panel group-context-menu"
             style={{
-              position: 'fixed',
-              top: `${groupContextMenu.y}px`,
-              left: `${groupContextMenu.x}px`,
-              zIndex: 1000,
-              minWidth: '130px',
-              borderRadius: '12px',
-              padding: '6px',
-              background: 'rgba(13, 20, 34, 0.92)',
-              backdropFilter: 'blur(20px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: '0 12px 30px rgba(0, 0, 0, 0.45)',
+              top: `${Math.min(groupContextMenu.y, window.innerHeight - 100)}px`,
+              left: `${Math.min(groupContextMenu.x, window.innerWidth - 120)}px`,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: '4px 8px', fontSize: '0.75rem', color: 'rgba(226,232,240,0.5)', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '4px' }}>
+            <div className="context-menu-header">
               分组：{groupContextMenu.category}
             </div>
             <button
               type="button"
+              className="context-menu-item"
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={() => {
                 const cat = groupContextMenu.category
                 setGroupContextMenu(null)
                 openEditGroupModal(cat)
               }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                width: '100%',
-                padding: '8px 10px',
-                border: 0,
-                borderRadius: '8px',
-                background: 'transparent',
-                color: '#f8fafc',
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-              }}
             >
-              ✏️ 编辑分组
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#38bdf8' }}>
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              <span>编辑</span>
             </button>
+
             <button
               type="button"
+              className="context-menu-item danger"
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={() => {
                 const cat = groupContextMenu.category
                 setGroupContextMenu(null)
                 confirmDeleteGroup(cat)
               }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                width: '100%',
-                padding: '8px 10px',
-                border: 0,
-                borderRadius: '8px',
-                background: 'transparent',
-                color: '#fca5a5',
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-              }}
             >
-              🗑️ 删除分组
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              <span>删除</span>
             </button>
           </div>
         )}
@@ -1590,31 +1567,41 @@ function App() {
           </div>
         )}
 
-        {/* 卡片右键浮动小弹窗 (上边是删除，下边是编辑) */}
+        {/* 卡片右键快捷菜单 */}
         {cardContextMenu && (
           <div
-            className="card-context-menu"
+            className="context-menu-panel card-context-menu"
             style={{
-              position: 'fixed',
-              top: `${Math.min(cardContextMenu.y, window.innerHeight - 110)}px`,
-              left: `${Math.min(cardContextMenu.x, window.innerWidth - 130)}px`,
-              zIndex: 3000,
-              borderRadius: '12px',
-              background: 'rgba(15, 23, 42, 0.92)',
-              backdropFilter: 'blur(20px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
-              border: '1px solid rgba(255, 255, 255, 0.22)',
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
-              padding: '4px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2px',
-              minWidth: '120px',
+              top: `${Math.min(cardContextMenu.y, window.innerHeight - 100)}px`,
+              left: `${Math.min(cardContextMenu.x, window.innerWidth - 120)}px`,
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="context-menu-header">
+              卡片：{cardContextMenu.card.title}
+            </div>
             <button
               type="button"
+              className="context-menu-item"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const cardToEdit = cardContextMenu.card
+                setCardContextMenu(null)
+                openEditCard(cardToEdit)
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#38bdf8' }}>
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              <span>编辑</span>
+            </button>
+
+            <button
+              type="button"
+              className="context-menu-item danger"
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.preventDefault()
@@ -1625,62 +1612,12 @@ function App() {
                   removeCard(cardToDelete.id)
                 }
               }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: 0,
-                background: 'transparent',
-                color: '#ef4444',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-              }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
               </svg>
               <span>删除</span>
-            </button>
-
-            <div style={{ height: '1px', background: 'rgba(255,255,255,0.12)', margin: '2px 0' }} />
-
-            <button
-              type="button"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                const cardToEdit = cardContextMenu.card
-                setCardContextMenu(null)
-                openEditCard(cardToEdit)
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: 0,
-                background: 'transparent',
-                color: '#f8fafc',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#38bdf8' }}>
-                <path d="M12 20h9"/>
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-              </svg>
-              <span>编辑</span>
             </button>
           </div>
         )}

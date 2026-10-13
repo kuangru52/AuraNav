@@ -196,7 +196,7 @@ export function SiteModal({
               />
             </label>
             <label style={{ margin: 0 }}>
-              <span>分类</span>
+              <span>分组</span>
               <select
                 value={form.category}
                 onChange={(event) => onFormChange((prev) => ({ ...prev, category: event.target.value }))}
@@ -209,7 +209,7 @@ export function SiteModal({
               </select>
             </label>
             <label style={{ margin: 0 }}>
-              <span>卡片背景色</span>
+              <span>背景色</span>
               <input
                 type="color"
                 value={form.accent}
