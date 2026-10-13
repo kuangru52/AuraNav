@@ -4,7 +4,7 @@
 
 **极简·高颜值·多用户·云端跨设备个人导航工作台**
 
-[![Version](https://img.shields.io/badge/version-3.0.1-blue.svg)](https://hub.docker.com/r/kuangru52/auranav)
+[![Version](https://img.shields.io/badge/version-3.2.3-blue.svg)](https://hub.docker.com/r/kuangru52/auranav)
 [![Docker Image](https://img.shields.io/badge/docker-kuangru52%2Fauranav-brightgreen.svg)](https://hub.docker.com/r/kuangru52/auranav)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 

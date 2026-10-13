@@ -1469,7 +1469,7 @@ function App() {
                   }}
                   title="点击添加新站点卡片"
                 >
-                  + 添加网站
+                  ➕ 添加网站
                 </button>
               </div>
             )}
