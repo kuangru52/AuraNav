@@ -681,6 +681,38 @@ function App() {
     }
   }, [showQuickMenu])
 
+  const [scrollProgress, setScrollProgress] = useState(0)
+
+  // 监听页面真实滚动进度，实时推动左侧指示器三条横线上下平滑滑行
+  useEffect(() => {
+    if (!isEditing) return
+
+    const updateScrollProgress = () => {
+      const shell = appShellRef.current || document.documentElement
+      const scrollTop = shell.scrollTop || window.scrollY || document.documentElement.scrollTop
+      const scrollHeight = shell.scrollHeight || document.documentElement.scrollHeight
+      const clientHeight = shell.clientHeight || window.innerHeight
+      const maxScroll = Math.max(1, scrollHeight - clientHeight)
+      const ratio = Math.min(1, Math.max(0, scrollTop / maxScroll))
+      setScrollProgress(ratio)
+    }
+
+    updateScrollProgress()
+
+    const shell = appShellRef.current
+    window.addEventListener('scroll', updateScrollProgress, { passive: true })
+    if (shell) {
+      shell.addEventListener('scroll', updateScrollProgress, { passive: true })
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updateScrollProgress)
+      if (shell) {
+        shell.removeEventListener('scroll', updateScrollProgress)
+      }
+    }
+  }, [isEditing])
+
   useEffect(() => {
     if (!groupContextMenu) return
     const closeMenu = (e: PointerEvent) => {
@@ -973,10 +1005,28 @@ function App() {
 
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [isShrunkAbove, setIsShrunkAbove] = useState(false)
+  const dragGrabOffsetRef = useRef<{ x: number; y: number }>({ x: 90, y: 34 })
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragId(String(event.active.id))
     setIsShrunkAbove(false)
+
+    try {
+      const activator = event.activatorEvent as any
+      const clientX = activator?.clientX ?? activator?.touches?.[0]?.clientX ?? activator?.changedTouches?.[0]?.clientX
+      const clientY = activator?.clientY ?? activator?.touches?.[0]?.clientY ?? activator?.changedTouches?.[0]?.clientY
+      const initialRect = event.active.rect.current.initial
+      if (clientX !== undefined && clientY !== undefined && initialRect) {
+        dragGrabOffsetRef.current = {
+          x: Math.round(clientX - initialRect.left),
+          y: Math.round(clientY - initialRect.top),
+        }
+      } else {
+        dragGrabOffsetRef.current = { x: 90, y: 34 }
+      }
+    } catch {
+      dragGrabOffsetRef.current = { x: 90, y: 34 }
+    }
   }
 
   const handleDragMove = (event: DragMoveEvent) => {
@@ -1403,6 +1453,24 @@ function App() {
                 >
                   💧 一键透明 ({selectedCategory})
                 </button>
+
+                <button
+                  type="button"
+                  className="category-add-button"
+                  onClick={openAddCard}
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.22)',
+                    borderColor: 'rgba(56, 189, 248, 0.55)',
+                    color: '#38bdf8',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    boxShadow: '0 6px 16px rgba(15, 23, 42, 0.25)',
+                  }}
+                  title="点击添加新站点卡片"
+                >
+                  + 添加网站
+                </button>
               </div>
             )}
 
@@ -1417,30 +1485,6 @@ function App() {
                 gap: `${pageLayoutSettings.cardGapY}px ${pageLayoutSettings.cardGapX}px`,
               }}
             >
-              {/* 编辑模式下，加号“添加网站”卡片放到第 1 个位置 */}
-              {isEditing && (
-                <div
-                  className={'site-tile add-card-tile'}
-                  style={{
-                    borderRadius: `${normalSettings.cornerRadius}px`,
-                    backgroundColor: `rgba(255, 255, 255, ${normalSettings.opacity * 0.35})`,
-                    backdropFilter: `blur(${normalSettings.blur}px)`,
-                    WebkitBackdropFilter: `blur(${normalSettings.blur}px)`,
-                    border: `1px solid rgba(255, 255, 255, ${normalSettings.edgeHighlight * 0.8})`,
-                  }}
-                >
-                  <button type="button" className="site-card add-card-button" onClick={openAddCard}>
-                    <div className="site-icon add-icon" style={{ color: '#38bdf8' }}>
-                      +
-                    </div>
-                    <div className="site-body">
-                      <h4>添加网站</h4>
-                      <p>点击添加新站点</p>
-                    </div>
-                  </button>
-                </div>
-              )}
-
               <SortableContext items={filteredCards.map((card) => card.id)} strategy={rectSortingStrategy}>
                 {filteredCards.map((card) => (
                   <SortableGlassCard
@@ -1571,6 +1615,12 @@ function App() {
                 }
                 window.scrollTo(0, targetScroll)
                 document.documentElement.scrollTop = targetScroll
+
+                const shellEl = appShellRef.current || document.documentElement
+                const scrollHeight = shellEl.scrollHeight || document.documentElement.scrollHeight
+                const clientHeight = shellEl.clientHeight || window.innerHeight
+                const maxScroll = Math.max(1, scrollHeight - clientHeight)
+                setScrollProgress(Math.min(1, Math.max(0, targetScroll / maxScroll)))
               }
 
               const onPointerUp = (upEvent: PointerEvent) => {
@@ -1609,7 +1659,16 @@ function App() {
             }}
           >
             <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 'bold' }}>▲</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                alignItems: 'center',
+                transform: `translateY(${(scrollProgress - 0.5) * 80}px)`,
+                transition: 'transform 0.08s ease-out',
+              }}
+            >
               <div style={{ width: '12px', height: '3px', background: 'rgba(255, 255, 255, 0.75)', borderRadius: '2px' }} />
               <div style={{ width: '12px', height: '3px', background: 'rgba(255, 255, 255, 0.75)', borderRadius: '2px' }} />
               <div style={{ width: '12px', height: '3px', background: 'rgba(255, 255, 255, 0.75)', borderRadius: '2px' }} />
@@ -1792,10 +1851,10 @@ function App() {
             }
 
             if (isShrunkAbove) {
-              const cardW = Math.max(180, pageLayoutSettings.cardHeight * 2.8)
-              const cardH = pageLayoutSettings.cardHeight
-              const shiftX = Math.round((cardW / 2) - 21)
-              const shiftY = Math.round((cardH / 2) - 21)
+              const grabX = dragGrabOffsetRef.current.x
+              const grabY = dragGrabOffsetRef.current.y
+              const shiftX = Math.round(grabX - 21)
+              const shiftY = Math.round(grabY - 21)
 
               return (
                 <div
@@ -1813,7 +1872,7 @@ function App() {
                     display: 'grid',
                     placeItems: 'center',
                     cursor: 'grabbing',
-                    transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                    transition: 'all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1)',
                     transform: `translate(${shiftX}px, ${shiftY}px) scale(1.15)`,
                     overflow: 'hidden',
                   }}
